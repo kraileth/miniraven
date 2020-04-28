@@ -4,7 +4,7 @@
 
 ## Why?
 
-[Ravenports](www.ravenports.com "Ravenports official website") is a sophisticated package system for Unix-like operating systems. It consists of package recipes (buildsheets), a packaging framework, a package manager and ready-to-use package repositories. RP currently supports **DragonFly BSD**, **FreeBSD**, **Linux** and **Solaris** on **amd64**.
+[Ravenports](http://www.ravenports.com "Ravenports official website") is a sophisticated package system for Unix-like operating systems. It consists of package recipes (buildsheets), a packaging framework, a package manager and ready-to-use package repositories. RP currently supports **DragonFly BSD**, **FreeBSD**, **Linux** and **Solaris** on **amd64**.
 
 Creating software packages and maintaining them over time is not a trivial task. While designed to be both highly efficient and easy to use, RP pays for these traits with a certain complexity. And while the latter is hidden from the end-user, bringing the framework up on a new platform is not for the faint-hearted. It is a process involving multiple steps, some of which are not that hard but boring and time-consuming. This project aims at scripting some tasks that can be automated easily.
 
