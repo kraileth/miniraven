@@ -5,8 +5,9 @@
 #############
 
 import globalvars
-import modules.helpers as helpers
 import modules.conf as conf
+import modules.helpers as helpers
+import modules.platform as platform
 import modules.subst as subst
 import configparser
 import hashlib
@@ -21,99 +22,6 @@ from urllib.request import urlretrieve
 ###############
  # Functions #
 ###############
-
-def get_osname():
-    if conf.get_config_value('version', 'osname') == '' or conf.get_config_value('version', 'osname') == 'auto':
-        osname = helpers.get_cmd_output("uname", "-s")
-        helpers.verbose_output("System: Autodetecting OS... " + osname + "\n")
-        return osname
-    else:
-        osname = conf.get_config_value('version', 'osname')
-        helpers.verbose_output("System: OS is \"" + osname + "\" (override via config file)\n")
-        return osname
-
-def get_os_version():
-    if conf.get_config_value('version', 'osversion') == '' or conf.get_config_value('version', 'osversion') == 'auto':
-        if OSNAME == 'FreeBSD':
-            osversion = helpers.get_cmd_output("uname", "-K")
-            helpers.verbose_output("System: Autodetecting OS version... " + osversion + "\n")
-            return osversion
-        else:
-            helpers.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
-    else:
-        osversion = conf.get_config_value('version', 'osversion')
-        helpers.verbose_output("System: OS version is \"" + osversion + "\" (override via config file)\n")
-        return osversion
-
-def get_os_release():
-    if conf.get_config_value('version', 'osrelease') == '' or conf.get_config_value('version', 'osrelease') == 'auto':
-        if OSNAME == 'FreeBSD':
-            temp = helpers.get_cmd_output("uname", "-v")
-            osrelease = temp[temp.find(" ") + 1 : temp.find("-")]
-            helpers.verbose_output("System: Autodetecting OS release... " + osrelease + "\n")
-            return osrelease
-        else:
-            helpers.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
-    else:
-        osrelease = conf.get_config_value('version', 'osrelease')
-        helpers.verbose_output("System: OS release is \"" + osrelease + "\" (override via config file)\n")
-        return osrelease
-
-def get_os_major():
-    if conf.get_config_value('version', 'osmajor') == '' or conf.get_config_value('version', 'osmajor') == 'auto':
-        if OSNAME == 'FreeBSD':
-            osmajor = OSRELEASE[:OSRELEASE.find(".")]
-            helpers.verbose_output("System: Autodetecting OS major version... " + osmajor + "\n")
-            return osmajor
-        else:
-            helpers.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
-    else:
-        osmajor = conf.get_config_value('version', 'osmajor')
-        helpers.verbose_output("System: OS major version is \"" + osmajor + "\" (override via config file)\n")
-        return osmajor
-
-def get_os_arch():
-    if conf.get_config_value('version', 'osarch') == '' or conf.get_config_value('version', 'osarch') == 'auto':
-        if OSNAME == 'FreeBSD':
-            osarch = helpers.get_cmd_output("uname", "-p")
-            helpers.verbose_output("System: Autodetecting host architecture... " + osarch + "\n")
-            return osarch
-        else:
-            helpers.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
-    else:
-        osarch = conf.get_config_value('version', 'osarch')
-        helpers.verbose_output("System: Host architecture is \"" + osarch + "\" (override via config file)\n")
-        return osarch
-
-def get_stdarch():
-    if conf.get_config_value('version', 'stdarch') == '' or conf.get_config_value('version', 'stdarch') == 'auto':
-        if OSARCH == "amd64" or OSARCH == "x86_64":
-            stdarch = "x86_64"
-        elif OSARCH == "i386":
-            stdarch = "x86"
-        elif OSARCH == "aarch64" or OSARCH == "arm64":
-            stdarch = "aarch64"
-        else:
-            helpers.die("System: Error, unsupported architecture \"" + OSARCH + "\"!")
-        helpers.verbose_output("System: Autodetecting host standard architecture... " + stdarch + "\n")
-        return stdarch
-    else:
-        stdarch = conf.get_config_value('version', 'stdarch')
-        helpers.verbose_output("System: Host standard architecture is \"" + stdarch + "\" (override via config file)\n")
-        return stdarch
-
-def assemble_triple():
-    if conf.get_config_value('version', 'tgt_triple') == '' or conf.get_config_value('version', 'tgt_triple') == 'auto':
-        if OSNAME == 'FreeBSD':
-            tgt_triple = STDARCH + "-raven-" + OSNAME.lower() + OSMAJOR
-            helpers.verbose_output("System: Assembling target triple... " + tgt_triple + "\n")
-            return tgt_triple
-        else:
-            helpers.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
-    else:
-        tgt_triple = conf.get_config_value('version', 'tgt_triple')
-        helpers.verbose_output("System: Target triple is \"" + tgt_triple + "\" (override via config file)\n")
-        return tgt_triple
 
 def populate_substitution_map():
     globalvars.SUBSTITUTION_MAP
@@ -151,13 +59,13 @@ def detect_packages():
 
 def print_info():
     print("\nInformation summary:\n--------------------------------------")
-    print("OSNAME: " + OSNAME)
-    print("OSVERSION: " + OSVERSION)
-    print("OSRELEASE: " + OSRELEASE)
-    print("OSMAJOR: " + OSMAJOR)
-    print("OSARCH: " + OSARCH)
-    print("STDARCH: " + STDARCH)
-    print("TARGET_TRIPLE: " + TGT_TRIPLE)
+    print("OSNAME: " + globalvars.OSNAME)
+    print("OSVERSION: " + globalvars.OSVERSION)
+    print("OSRELEASE: " + globalvars.OSRELEASE)
+    print("OSMAJOR: " + globalvars.OSMAJOR)
+    print("OSARCH: " + globalvars.OSARCH)
+    print("STDARCH: " + globalvars.STDARCH)
+    print("TARGET_TRIPLE: " + globalvars.TGT_TRIPLE)
     print("--------------------------------------\n")
     print(str(len(packages_present)) + " packages present:")
     for p in packages_present:
@@ -458,12 +366,12 @@ def prepare_bmake_patch():
 def prepare_uname_source():
     wrkdir = get_wrkdir("uname")
     helpers.verbose_output("Applying plattform info to fake uname... ")
-    reinplace(wrkdir + "/uname.c.in", "\"@OPSYS@\"", OSNAME)
-    reinplace(wrkdir + "/uname.c.in", "\"@ARCH@\"", OSARCH)
-    reinplace(wrkdir + "/uname.c.in", "\"@PLATFORM@\"", STDARCH)
-    reinplace(wrkdir + "/uname.c.in", "\"@RELEASE@\"", OSRELEASE + "-RAVEN")
-    reinplace(wrkdir + "/uname.c.in", "\"@USERVER@\"", OSVERSION)
-    reinplace(wrkdir + "/uname.c.in", "\"@OPSYS@ @RELEASE@ #0 Sat Jul 29 09:00:00 CDT 2017 root@octavia.unreal.systems:/usr/obj/usr/src/sys/GENERIC\"", OSNAME + " " + OSRELEASE + " #0 " + time.ctime() + " root@" + socket.getfqdn() + ":/usr/obj/usr/src/sys/GENERIC")
+    reinplace(wrkdir + "/uname.c.in", "\"@OPSYS@\"", globalvars.OSNAME)
+    reinplace(wrkdir + "/uname.c.in", "\"@ARCH@\"", globalvars.OSARCH)
+    reinplace(wrkdir + "/uname.c.in", "\"@PLATFORM@\"", globalvars.STDARCH)
+    reinplace(wrkdir + "/uname.c.in", "\"@RELEASE@\"", globalvars.OSRELEASE + "-RAVEN")
+    reinplace(wrkdir + "/uname.c.in", "\"@USERVER@\"", globalvars.OSVERSION)
+    reinplace(wrkdir + "/uname.c.in", "\"@OPSYS@ @RELEASE@ #0 Sat Jul 29 09:00:00 CDT 2017 root@octavia.unreal.systems:/usr/obj/usr/src/sys/GENERIC\"", globalvars.OSNAME + " " + globalvars.OSRELEASE + " #0 " + time.ctime() + " root@" + socket.getfqdn() + ":/usr/obj/usr/src/sys/GENERIC")
     reinplace(wrkdir + "/uname.c.in", "\"octavia.unreal.systems\"", socket.getfqdn())
     helpers.verbose_output("ok\n")
 
@@ -529,16 +437,16 @@ conf.config = configparser.ConfigParser()
 conf.config.read(globalvars.CONFNAME)
 conf.assert_config_valid()
 
-OSNAME = get_osname()
-if not OSNAME in globalvars.OPERATING_SYSTEMS_SUPPORTED:
-    helpers.die("Unsupported OS: \"" + OSNAME + "\"!")
-OSVERSION = get_os_version()
-OSRELEASE = get_os_release()
-OSMAJOR = get_os_major()
-OSARCH = get_os_arch()
-STDARCH = get_stdarch()
-TGT_TRIPLE = assemble_triple()
-print("System: Set for " + TGT_TRIPLE + ".")
+globalvars.OSNAME = platform.get_osname()
+if not globalvars.OSNAME in globalvars.OPERATING_SYSTEMS_SUPPORTED:
+    helpers.die("Unsupported OS: \"" + globalvars.OSNAME + "\"!")
+globalvars.OSVERSION = platform.get_os_version()
+globalvars.OSRELEASE = platform.get_os_release()
+globalvars.OSMAJOR = platform.get_os_major()
+globalvars.OSARCH = platform.get_os_arch()
+globalvars.STDARCH = platform.get_stdarch()
+globalvars.TGT_TRIPLE = platform.assemble_triple()
+print("System: Set for " + globalvars.TGT_TRIPLE + ".")
 
 populate_substitution_map()
 helpers.assert_external_binaries_available()
