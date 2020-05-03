@@ -25,23 +25,6 @@ def ensure_fs():
     misc.ensure_fs_hierarchy('rbuild')
     print("Filesystem: Hierarchy is in place.")
 
-def detect_packages():
-    packages_present = []
-    packages_missing = []
-    value = conf.get_config_value('main', 'packages').split(', ')
-    if isinstance(value, list):
-        for p in conf.get_config_value('main', 'packages').split(', '):
-            if misc.is_package_present(p):
-                packages_present.append(p)
-            else:
-                packages_missing.append(p)
-    else:
-        if misc.is_package_present(value):
-            packages_present.append(value)
-        else:
-            packages_missing.append(value)
-    return(packages_present, packages_missing)
-
 def print_info():
     print("\nInformation summary:\n--------------------------------------")
     print("OSNAME: " + globalvars.OSNAME)
@@ -76,7 +59,7 @@ def ensure_distfile(mode, package):
         if mode == "compressed":
             misc.fetch_file(conf.get_config_value('distfiles', package), distdir, filename)
         else:
-            decompress_file(globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], misc.get_filename('distfiles', package), distdir)
+            misc.decompress_file(globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], misc.get_filename('distfiles', package), distdir)
 
     checksum = misc.get_distfile_checksum(hashtype, package)
     misc.verbose_output("Checksum for \"" + package + "\": Comparing for " + mode + " distfile... ")
@@ -98,49 +81,6 @@ def ensure_distfile(mode, package):
             else:
                 misc.verbose_output("Mismatch! Extracting again...\n")
                 misc.die("Extract again!")
-
-def do_shell_cmd(cmd, cwd, env):
-    p = subprocess.Popen(cmd, cwd=cwd, env=env, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # ~ p = subprocess.run(args=cmd, cwd=cwd, env=env, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = p.communicate()
-    if p.returncode != 0:
-        misc.die("\nError: Shell execution failed!\nstdout: " + stdout.decode() + "\nstderr: " + stderr.decode())
-    return(p.returncode)
-
-def assert_binary_available(binary):
-    if not binary in conf.get_config_value('main', 'external_binaries').split(', '):
-        program = conf.get_config_value("fs", "tgt_prefix") + "/bin/" + binary
-        if not os.path.isfile(program):
-            misc.die("Cannot decompress \"" + extenstion + "\" archives before the package is built (check package order)! Exiting.")
-
-def decompress_file(srcdir, filename, tgt_dir):
-    misc.verbose_output("Decompressing \"" + filename + "\"... ")
-    extension = misc.get_archive_extension(filename)
-    
-    if extension.startswith("tar"):
-        binary = conf.get_config_value("decompress", extension[4:] + "_bin")
-    elif extension.startswith("t"):
-        binary = conf.get_config_value("decompress", extension[2:] + "_bin")
-    else:
-        misc.die("Error: Unhandled archive \"" + extension + "\"! Exiting.")
-    assert_binary_available(binary)
-    
-    generic_cmds = conf.get_config_value("decompress", "decompress_cmd").split(', ')
-    for c in generic_cmds:
-        cmd = c.replace('%INFILE%', srcdir + '/' + filename).replace('%TGT_DIR%', tgt_dir).replace('%BINARY%', binary).replace('%FILENAME%', filename)
-        # ~ r = do_shell_cmd(cmd, globalvars.SUBSTITUTION_MAP['rbuild_dist_uncomp_dir'], None)
-        r = do_shell_cmd(cmd, tgt_dir, None)
-        if r != 0:
-            misc.die("\nError: Could not decompress archive \"" + infile + "\"!")
-    misc.verbose_output("ok\n")
-
-def extract_tarball(package):
-    print("Extracting \"" + os.path.basename(misc.get_tarball_uri(package)) + "\"... ", end='', flush=True)
-    cmd = "tar -C " + globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + " -xf " + misc.get_tarball_uri(package)
-    r = do_shell_cmd(cmd, None, None)
-    if r != 0:
-        misc.die("\nError: Could not extract tarball \"" + os.path.basename(misc.get_tarball_uri(package)) + "\"! Exiting.")
-    print("ok")
 
 def ensure_extrafiles_present(package):
     extradir = globalvars.SUBSTITUTION_MAP['rbuild_extra_dir'] + '/' + package
@@ -179,16 +119,8 @@ def ensure_extrafiles_present(package):
                     misc.die("Mismatch again! Bailing out...")
         i = i + 1
 
-def get_wrkdir(package):
-    if package + "_name" in conf.config['distfiles']:
-        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + conf.get_config_value('distfiles', package + "_name"))
-    elif package in conf.config['distfiles']:
-        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + os.path.basename(misc.get_tarball_uri(package).rstrip(".tar")))
-    else:
-        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + package)
-
 def ensure_clean_wrkdir(package):
-    wrkdir = get_wrkdir(package)
+    wrkdir = misc.get_wrkdir(package)
     if os.path.exists(wrkdir):
         print("Old workdir found. Deleting... ", end='', flush=True)
         misc.remove_file_or_dir(wrkdir)
@@ -197,7 +129,7 @@ def ensure_clean_wrkdir(package):
     if package in conf.config['distfiles']:
         ensure_distfile("compressed", package)
         ensure_distfile("uncompressed", package)
-        extract_tarball(package)
+        misc.extract_tarball(package)
     
     if package in conf.config['extrafiles']:
         if not os.path.exists(wrkdir):
@@ -254,65 +186,23 @@ def ensure_patchfiles_present(package):
                     misc.die("Mismatch again! Bailing out...")
         i = i + 1
 
-def prepare_env(env, package):
-    environ = os.environ.copy()
-    env_add = []
-    if env in conf.config['default']:
-        for v in conf.get_config_value('default', env).split(', '):
-           if v.count('|') != 1:
-                misc.die("Error: Invalid default environment variable assignment \"" + v + "\"! Exiting.")
-           env_add.append(v.split('|'))
-    
-    if package in conf.config[env + '_env']:
-        for v in conf.get_config_value(env + '_env', package).split(', '):
-            if v.count('|') != 1:
-                misc.die("Error: Invalid " + env + " environment variable assignment \"" + v + "\" for package \"" + package + "\"! Exiting.")
-            env_add.append(v.split('|'))
-    
-    for e in env_add:
-        environ[e[0]] = e[1]
-    return(environ)
-
-def reinplace(filename, string, repl):
-    with open(filename) as f:
-        s = f.read()
-
-    with open(filename, 'w') as f:
-        s = s.replace(string, "\"" + repl + "\"")
-        f.write(s)
-
 def prepare_bmake_patch():
     misc.verbose_output("Adapting bmake patch to target system... ")
     for s in ["OSNAME", "OSVERSION", "OSRELEASE", "OSMAJOR", "OSARCH", "STDARCH"]:
-        reinplace(globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + "/bmake/patch-main.c", s, eval("globalvars." + s))
+        misc.reinplace(globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + "/bmake/patch-main.c", s, eval("globalvars." + s))
     misc.verbose_output("ok\n")
 
 def prepare_uname_source():
-    wrkdir = get_wrkdir("uname")
+    wrkdir = misc.get_wrkdir("uname")
     misc.verbose_output("Applying plattform info to fake uname... ")
-    reinplace(wrkdir + "/uname.c.in", "\"@OPSYS@\"", globalvars.OSNAME)
-    reinplace(wrkdir + "/uname.c.in", "\"@ARCH@\"", globalvars.OSARCH)
-    reinplace(wrkdir + "/uname.c.in", "\"@PLATFORM@\"", globalvars.STDARCH)
-    reinplace(wrkdir + "/uname.c.in", "\"@RELEASE@\"", globalvars.OSRELEASE + "-RAVEN")
-    reinplace(wrkdir + "/uname.c.in", "\"@USERVER@\"", globalvars.OSVERSION)
-    reinplace(wrkdir + "/uname.c.in", "\"@OPSYS@ @RELEASE@ #0 Sat Jul 29 09:00:00 CDT 2017 root@octavia.unreal.systems:/usr/obj/usr/src/sys/GENERIC\"", globalvars.OSNAME + " " + globalvars.OSRELEASE + " #0 " + time.ctime() + " root@" + socket.getfqdn() + ":/usr/obj/usr/src/sys/GENERIC")
-    reinplace(wrkdir + "/uname.c.in", "\"octavia.unreal.systems\"", socket.getfqdn())
+    misc.reinplace(wrkdir + "/uname.c.in", "\"@OPSYS@\"", globalvars.OSNAME)
+    misc.reinplace(wrkdir + "/uname.c.in", "\"@ARCH@\"", globalvars.OSARCH)
+    misc.reinplace(wrkdir + "/uname.c.in", "\"@PLATFORM@\"", globalvars.STDARCH)
+    misc.reinplace(wrkdir + "/uname.c.in", "\"@RELEASE@\"", globalvars.OSRELEASE + "-RAVEN")
+    misc.reinplace(wrkdir + "/uname.c.in", "\"@USERVER@\"", globalvars.OSVERSION)
+    misc.reinplace(wrkdir + "/uname.c.in", "\"@OPSYS@ @RELEASE@ #0 Sat Jul 29 09:00:00 CDT 2017 root@octavia.unreal.systems:/usr/obj/usr/src/sys/GENERIC\"", globalvars.OSNAME + " " + globalvars.OSRELEASE + " #0 " + time.ctime() + " root@" + socket.getfqdn() + ":/usr/obj/usr/src/sys/GENERIC")
+    misc.reinplace(wrkdir + "/uname.c.in", "\"octavia.unreal.systems\"", socket.getfqdn())
     misc.verbose_output("ok\n")
-
-def patch_source(package):
-    patches = conf.get_config_value('patches', package).split(", ")
-    patchdir = globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + '/' + package
-    i = 0
-    for uri in patches:
-        filename = os.path.basename(uri)
-        absolute_path = patchdir + '/' + filename
-        misc.verbose_output("Patching source of " + package + ": Applying patch " + str(i) + "... ")
-        cmd = "patch -i " + absolute_path
-        r = do_shell_cmd(cmd, get_wrkdir(package), None)
-        if r != 0:
-            misc.die("\nError applying patch \"" + absolute_path + "\"! Exiting.")
-        misc.verbose_output("ok\n")
-        i = i + 1
 
 def build_package(phase, package):
     if phase == "configure":
@@ -326,11 +216,11 @@ def build_package(phase, package):
         env = "make"
     else:
         misc.die("\nError: Unknown build phase \"" + phase + "\"! Exiting.")
-    env = prepare_env(env, package)
+    env = misc.prepare_env(env, package)
     print(activity + " \"" + package + "\"... ", end='', flush=True)
-    wrkdir = get_wrkdir(package)
+    wrkdir = misc.get_wrkdir(package)
     for cmd in conf.get_config_value(phase + "_cmds", package).split(', '):
-        r = do_shell_cmd(cmd, wrkdir, env)
+        r = misc.do_shell_cmd(cmd, wrkdir, env)
         if r != 0:
             misc.die("\nError: " + activity + " failed for package \"" + package + "\"! Exiting.")
     print("ok")
@@ -345,7 +235,7 @@ def build_missing():
             ensure_patchfiles_present(p)
             if p == "bmake":
                 prepare_bmake_patch()
-            patch_source(p)
+            misc.patch_source(p)
         if p in conf.config['configure_cmds']:
             build_package('configure', p)
         if p in conf.config['make_cmds']:
@@ -375,7 +265,7 @@ print("System: Set for " + globalvars.TGT_TRIPLE + ".")
 subst.populate_substitution_map()
 misc.assert_external_binaries_available()
 ensure_fs()
-packages_present, packages_missing = detect_packages()
+packages_present, packages_missing = misc.detect_packages()
 print_info()
 
 if len(packages_missing) > 0:

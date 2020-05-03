@@ -52,6 +52,23 @@ def is_package_present(package):
             return False
     return True
 
+def detect_packages():
+    packages_present = []
+    packages_missing = []
+    value = conf.get_config_value('main', 'packages').split(', ')
+    if isinstance(value, list):
+        for p in conf.get_config_value('main', 'packages').split(', '):
+            if is_package_present(p):
+                packages_present.append(p)
+            else:
+                packages_missing.append(p)
+    else:
+        if is_package_present(value):
+            packages_present.append(value)
+        else:
+            packages_missing.append(value)
+    return(packages_present, packages_missing)
+
 def fetch_file(uri, directory, filename):
     print("Fetching \"" + filename + "\"... ", end='', flush=True)
     try:
@@ -112,6 +129,97 @@ def get_distfile_checksum(hashtype, package):
     if package in conf.config["distfile_" + hashtype]:
         return(conf.get_config_value("distfile_" + hashtype, package))
     return(None)
+
+def do_shell_cmd(cmd, cwd, env):
+    p = subprocess.Popen(cmd, cwd=cwd, env=env, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    if p.returncode != 0:
+        die("\nError: Shell execution failed!\nstdout: " + stdout.decode() + "\nstderr: " + stderr.decode())
+    return(p.returncode)
+
+def assert_archiver_available(binary):
+    if not binary in conf.get_config_value('main', 'external_binaries').split(', '):
+        program = conf.get_config_value("fs", "tgt_prefix") + "/bin/" + binary
+        if not os.path.isfile(program):
+            die("Cannot decompress \"" + extenstion + "\" archives before the package is built (check package order)! Exiting.")
+
+def decompress_file(srcdir, filename, tgt_dir):
+    verbose_output("Decompressing \"" + filename + "\"... ")
+    extension = get_archive_extension(filename)
+    
+    if extension.startswith("tar"):
+        binary = conf.get_config_value("decompress", extension[4:] + "_bin")
+    elif extension.startswith("t"):
+        binary = conf.get_config_value("decompress", extension[2:] + "_bin")
+    else:
+        die("Error: Unhandled archive \"" + extension + "\"! Exiting.")
+    assert_archiver_available(binary)
+    
+    generic_cmds = conf.get_config_value("decompress", "decompress_cmd").split(', ')
+    for c in generic_cmds:
+        cmd = c.replace('%INFILE%', srcdir + '/' + filename).replace('%TGT_DIR%', tgt_dir).replace('%BINARY%', binary).replace('%FILENAME%', filename)
+        r = do_shell_cmd(cmd, tgt_dir, None)
+        if r != 0:
+            die("\nError: Could not decompress archive \"" + infile + "\"!")
+    verbose_output("ok\n")
+
+def extract_tarball(package):
+    print("Extracting \"" + os.path.basename(get_tarball_uri(package)) + "\"... ", end='', flush=True)
+    cmd = "tar -C " + globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + " -xf " + get_tarball_uri(package)
+    r = do_shell_cmd(cmd, None, None)
+    if r != 0:
+        die("\nError: Could not extract tarball \"" + os.path.basename(get_tarball_uri(package)) + "\"! Exiting.")
+    print("ok")
+
+def get_wrkdir(package):
+    if package + "_name" in conf.config['distfiles']:
+        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + conf.get_config_value('distfiles', package + "_name"))
+    elif package in conf.config['distfiles']:
+        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + os.path.basename(get_tarball_uri(package).rstrip(".tar")))
+    else:
+        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + package)
+
+def prepare_env(env, package):
+    environ = os.environ.copy()
+    env_add = []
+    if env in conf.config['default']:
+        for v in conf.get_config_value('default', env).split(', '):
+           if v.count('|') != 1:
+                die("Error: Invalid default environment variable assignment \"" + v + "\"! Exiting.")
+           env_add.append(v.split('|'))
+    
+    if package in conf.config[env + '_env']:
+        for v in conf.get_config_value(env + '_env', package).split(', '):
+            if v.count('|') != 1:
+                die("Error: Invalid " + env + " environment variable assignment \"" + v + "\" for package \"" + package + "\"! Exiting.")
+            env_add.append(v.split('|'))
+    
+    for e in env_add:
+        environ[e[0]] = e[1]
+    return(environ)
+
+def reinplace(filename, string, repl):
+    with open(filename) as f:
+        s = f.read()
+
+    with open(filename, 'w') as f:
+        s = s.replace(string, "\"" + repl + "\"")
+        f.write(s)
+
+def patch_source(package):
+    patches = conf.get_config_value('patches', package).split(", ")
+    patchdir = globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + '/' + package
+    i = 0
+    for uri in patches:
+        filename = os.path.basename(uri)
+        absolute_path = patchdir + '/' + filename
+        verbose_output("Patching source of " + package + ": Applying patch " + str(i) + "... ")
+        cmd = "patch -i " + absolute_path
+        r = do_shell_cmd(cmd, get_wrkdir(package), None)
+        if r != 0:
+            die("\nError applying patch \"" + absolute_path + "\"! Exiting.")
+        verbose_output("ok\n")
+        i = i + 1
 
 def main():
     print("This module is meant to be used with MiniRaven and not really useful on it's own.")
