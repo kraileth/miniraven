@@ -4,7 +4,7 @@
  # Imports #
 #############
 
-import modules.globalvars as globalvars
+import globalvars
 import modules.helpers as helpers
 import modules.conf as conf
 import configparser

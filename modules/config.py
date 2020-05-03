@@ -2,7 +2,7 @@
  # Imports #
 #############
 
-import modules.globalvars as globalvars
+import globalvars
 import modules.helpers as helpers
 import os
 

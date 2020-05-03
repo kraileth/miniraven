@@ -2,7 +2,7 @@
  # Imports #
 #############
 
-import modules.globalvars as globalvars
+import globalvars
 
 ###############
  # Functions #
