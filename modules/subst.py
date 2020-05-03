@@ -3,6 +3,7 @@
 #############
 
 import globalvars
+import modules.conf as conf
 import modules.helpers as helpers
 
 ###############
@@ -33,6 +34,16 @@ def substitute_variables(string):
     for var in get_substitution_variables(string):
         string = string.replace("$$" + var + "$$", get_substitution_variable_value(var), 1)
     return(string)
+
+def populate_substitution_map():
+    helpers.verbose_output("Internal: Populating substitution map... ")
+    for v in conf.get_config_value('main', 'substitution_vars').split(', '):
+        globalvars.SUBSTITUTION_MAP[v] = conf.get_config_value('fs', v)
+    for l in conf.get_config_value('main', 'substitution_lists').split(', '):
+        for v in conf.get_config_value('fs', l).split(', '):
+            varname = l.replace('_hier', '') + '_' + v
+            globalvars.SUBSTITUTION_MAP[varname] = conf.get_config_value('fs', varname)
+    helpers.verbose_output("ok\n")
 
 def main():
     print("This module is meant to be used with MiniRaven and not really useful on it's own.")

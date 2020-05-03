@@ -10,35 +10,20 @@ import modules.helpers as helpers
 import modules.platform as platform
 import modules.subst as subst
 import configparser
-import hashlib
 import os
 import re
-import shutil
 import socket
 import subprocess
 import time
-from urllib.request import urlretrieve
 
 ###############
  # Functions #
 ###############
 
-def populate_substitution_map():
-    globalvars.SUBSTITUTION_MAP
-    helpers.verbose_output("Internal: Populating substitution map... ")
-    for v in conf.get_config_value('main', 'substitution_vars').split(', '):
-        globalvars.SUBSTITUTION_MAP[v] = conf.get_config_value('fs', v)
-    for l in conf.get_config_value('main', 'substitution_lists').split(', '):
-        for v in conf.get_config_value('fs', l).split(', '):
-            varname = l.replace('_hier', '') + '_' + v
-            globalvars.SUBSTITUTION_MAP[varname] = conf.get_config_value('fs', varname)
-    helpers.verbose_output("ok\n")
-
-def is_package_present(package):
-    for f in conf.get_config_value('mini_manifest', package).split(', '):
-        if not os.path.isfile(f):
-            return False
-    return True
+def ensure_fs():
+    helpers.ensure_fs_hierarchy('rjail')
+    helpers.ensure_fs_hierarchy('rbuild')
+    print("Filesystem: Hierarchy is in place.")
 
 def detect_packages():
     packages_present = []
@@ -46,12 +31,12 @@ def detect_packages():
     value = conf.get_config_value('main', 'packages').split(', ')
     if isinstance(value, list):
         for p in conf.get_config_value('main', 'packages').split(', '):
-            if is_package_present(p):
+            if helpers.is_package_present(p):
                 packages_present.append(p)
             else:
                 packages_missing.append(p)
     else:
-        if is_package_present(value):
+        if helpers.is_package_present(value):
             packages_present.append(value)
         else:
             packages_missing.append(value)
@@ -74,75 +59,14 @@ def print_info():
     for p in packages_missing:
         print(p + ' ', end='')
 
-def fetch_file(uri, directory, filename):
-    print("Fetching \"" + filename + "\"... ", end='', flush=True)
-    try:
-        urlretrieve(uri, directory + "/" + filename)
-    except IOError as e:
-        if "CERTIFICATE_VERIFY_FAILED" in str(e):
-            print("Error: Could not verify TLS certificate for \"" + uri + "\"! ", end='', flush=True)
-            helpers.die("(Do you have the certs package installed?)")
-        else:
-            print(e)
-            helpers.die("Unknown error!")
-    except Exception as e:
-        raise
-    print("ok")
-
-def get_file_hash(uri):
-    md5_hash = hashlib.md5()
-    with open(uri, "rb") as f:
-        for block in iter(lambda: f.read(4096),b""):
-            md5_hash.update(block)
-    return(md5_hash.hexdigest())
-
-def get_filename(section, package):
-    if not package in conf.config[section]:
-        helpers.die("Error: Could not find key for \"" + package + "\" in section \"" + section + "\"! Exiting.")
-    uri = conf.get_config_value(section, package)
-    return(os.path.basename(uri))
-
-def get_archive_extension(filename):
-    for e in conf.get_config_value('decompress', 'file_types').split(', '):
-        if filename.endswith(e) == True:
-            return(e)
-    helpers.die("Unsupported archive type for file \"" + filename + "\"! Exiting.")
-
-def get_tarball_uri(package):
-    filename = get_filename('distfiles', package)
-    extension = get_archive_extension(filename)
-    tarball = filename.rstrip(extension) + ".tar"
-    return(globalvars.SUBSTITUTION_MAP['rbuild_dist_uncomp_dir'] + '/' + tarball)
-
-def remove_file_or_dir(uri):
-    if os.path.isfile(uri):
-        try:
-            os.remove(uri)
-        except OSError as e:
-            helpers.die("Error deleting file \"" + uri + "\"! Exiting.")
-    elif os.path.isdir(uri):
-        try:
-            shutil.rmtree(uri)
-        except OSError as e:
-            helpers.die("Error deleting directory \"" + uri + "\"! Exiting.")
-    else:
-        helpers.die("Filesystem object \"" + uri + "\" is neither an ordinary file nor a directory. Refusing to delete! Exiting.")
-
-def get_distfile_checksum(hashtype, package):
-    if hashtype != "md5" and hashtype != "umd5":
-        helpers.die("Unknown distfile hash type \"" + hashtype + "\"!") 
-    if package in conf.config["distfile_" + hashtype]:
-        return(conf.get_config_value("distfile_" + hashtype, package))
-    return(None)
-
 def ensure_distfile(mode, package):
     if mode == "compressed":
         distdir = globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir']
-        filename = get_filename('distfiles', package)
+        filename = helpers.get_filename('distfiles', package)
         hashtype = "md5"
     elif mode == "uncompressed":
         distdir = globalvars.SUBSTITUTION_MAP['rbuild_dist_uncomp_dir']
-        filename = os.path.basename(get_tarball_uri(package))
+        filename = os.path.basename(helpers.get_tarball_uri(package))
         hashtype = "umd5"
     else:
         helpers.die("Invalid ensure_distfile mode \"" + mode + "\"! Aborting...")
@@ -150,24 +74,24 @@ def ensure_distfile(mode, package):
 
     if not os.path.isfile(absolute_path):
         if mode == "compressed":
-            fetch_file(conf.get_config_value('distfiles', package), distdir, filename)
+            helpers.fetch_file(conf.get_config_value('distfiles', package), distdir, filename)
         else:
-            decompress_file(globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], get_filename('distfiles', package), distdir)
+            decompress_file(globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], helpers.get_filename('distfiles', package), distdir)
 
-    checksum = get_distfile_checksum(hashtype, package)
+    checksum = helpers.get_distfile_checksum(hashtype, package)
     helpers.verbose_output("Checksum for \"" + package + "\": Comparing for " + mode + " distfile... ")
     if checksum == None:
         helpers.verbose_output("skipping (not available)\n")
     else:
-        if get_file_hash(absolute_path) == checksum:
+        if helpers.get_file_hash(absolute_path) == checksum:
             helpers.verbose_output("ok (matches)\n")
         else:
             if mode == "compressed":
                 helpers.verbose_output("Mismatch! Fetching again...\n")
-                remove_file_or_dir(absolute_path)
-                fetch_file(conf.get_config_value('distfiles', package), globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], filename)
+                helpers.remove_file_or_dir(absolute_path)
+                helpers.fetch_file(conf.get_config_value('distfiles', package), globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], filename)
                 helpers.verbose_output("Comparing checksums once more... ")
-                if get_file_hash(absolute_path) == checksum:
+                if helpers.get_file_hash(absolute_path) == checksum:
                     helpers.verbose_output("ok (matches)\n")
                 else:
                     helpers.die("Mismatch again! Bailing out...")
@@ -191,7 +115,7 @@ def assert_binary_available(binary):
 
 def decompress_file(srcdir, filename, tgt_dir):
     helpers.verbose_output("Decompressing \"" + filename + "\"... ")
-    extension = get_archive_extension(filename)
+    extension = helpers.get_archive_extension(filename)
     
     if extension.startswith("tar"):
         binary = conf.get_config_value("decompress", extension[4:] + "_bin")
@@ -211,11 +135,11 @@ def decompress_file(srcdir, filename, tgt_dir):
     helpers.verbose_output("ok\n")
 
 def extract_tarball(package):
-    print("Extracting \"" + os.path.basename(get_tarball_uri(package)) + "\"... ", end='', flush=True)
-    cmd = "tar -C " + globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + " -xf " + get_tarball_uri(package)
+    print("Extracting \"" + os.path.basename(helpers.get_tarball_uri(package)) + "\"... ", end='', flush=True)
+    cmd = "tar -C " + globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + " -xf " + helpers.get_tarball_uri(package)
     r = do_shell_cmd(cmd, None, None)
     if r != 0:
-        helpers.die("\nError: Could not extract tarball \"" + os.path.basename(get_tarball_uri(package)) + "\"! Exiting.")
+        helpers.die("\nError: Could not extract tarball \"" + os.path.basename(helpers.get_tarball_uri(package)) + "\"! Exiting.")
     print("ok")
 
 def ensure_extrafiles_present(package):
@@ -237,19 +161,19 @@ def ensure_extrafiles_present(package):
         filename = os.path.basename(f)
         absolute_path = extradir + '/' + filename
         if not os.path.isfile(absolute_path):
-            fetch_file(f, extradir, filename)
+            helpers.fetch_file(f, extradir, filename)
         helpers.verbose_output("Comparing checksums for extra file " + str(i) + "... ")
         if md5s == None:
             helpers.verbose_output("skipping (not available)\n")
         else:
-            if get_file_hash(absolute_path) == md5s[i]:
+            if helpers.get_file_hash(absolute_path) == md5s[i]:
                 helpers.verbose_output("ok (matches)\n")
             else:
                 helpers.verbose_output("Mismatch! Fetching again...\n")
-                remove_file_or_dir(absolute_path)
-                fetch_file(f, extradir, filename)
+                helpers.remove_file_or_dir(absolute_path)
+                helpers.fetch_file(f, extradir, filename)
                 helpers.verbose_output("Comparing checksums once more... ")
-                if get_file_hash(absolute_path) == md5s[i]:
+                if helpers.get_file_hash(absolute_path) == md5s[i]:
                     helpers.verbose_output("ok (matches)\n")
                 else:
                     helpers.die("Mismatch again! Bailing out...")
@@ -259,7 +183,7 @@ def get_wrkdir(package):
     if package + "_name" in conf.config['distfiles']:
         return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + conf.get_config_value('distfiles', package + "_name"))
     elif package in conf.config['distfiles']:
-        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + os.path.basename(get_tarball_uri(package).rstrip(".tar")))
+        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + os.path.basename(helpers.get_tarball_uri(package).rstrip(".tar")))
     else:
         return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + package)
 
@@ -267,7 +191,7 @@ def ensure_clean_wrkdir(package):
     wrkdir = get_wrkdir(package)
     if os.path.exists(wrkdir):
         print("Old workdir found. Deleting... ", end='', flush=True)
-        remove_file_or_dir(wrkdir)
+        helpers.remove_file_or_dir(wrkdir)
         print("ok")
         
     if package in conf.config['distfiles']:
@@ -312,19 +236,19 @@ def ensure_patchfiles_present(package):
         filename = os.path.basename(uri)
         absolute_path = patchdir + '/' + filename
         if not os.path.isfile(absolute_path):
-            fetch_file(uri, patchdir, filename)
+            helpers.fetch_file(uri, patchdir, filename)
         helpers.verbose_output("Comparing checksums for patch " + str(i) + "... ")
         if md5s == None:
             helpers.verbose_output("skipping (not available)\n")
         else:
-            if get_file_hash(absolute_path) == md5s[i]:
+            if helpers.get_file_hash(absolute_path) == md5s[i]:
                 helpers.verbose_output("ok (matches)\n")
             else:
                 helpers.verbose_output("Mismatch! Fetching again...\n")
-                remove_file_or_dir(absolute_path)
-                fetch_file(uri, patchdir, filename)
+                helpers.remove_file_or_dir(absolute_path)
+                helpers.fetch_file(uri, patchdir, filename)
                 helpers.verbose_output("Comparing checksums once more... ")
-                if get_file_hash(absolute_path) == md5s[i]:
+                if helpers.get_file_hash(absolute_path) == md5s[i]:
                     helpers.verbose_output("ok (matches)\n")
                 else:
                     helpers.die("Mismatch again! Bailing out...")
@@ -448,9 +372,9 @@ globalvars.STDARCH = platform.get_stdarch()
 globalvars.TGT_TRIPLE = platform.assemble_triple()
 print("System: Set for " + globalvars.TGT_TRIPLE + ".")
 
-populate_substitution_map()
+subst.populate_substitution_map()
 helpers.assert_external_binaries_available()
-helpers.ensure_fs()
+ensure_fs()
 packages_present, packages_missing = detect_packages()
 print_info()
 
