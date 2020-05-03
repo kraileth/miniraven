@@ -3,7 +3,7 @@
 #############
 
 import globalvars
-import modules.helpers as helpers
+import modules.misc as misc
 import modules.subst as subst
 import os
 
@@ -14,22 +14,22 @@ import os
 def assert_conf_file_present():
     ("Config: Checking if config file exists... ")
     if not os.path.isfile(globalvars.CONFNAME):
-        helpers.die("\nError: Could not read configuration file \"" + globalvars.CONFNAME + "\"! Exiting.")
-    helpers.verbose_output("ok\n")
+        misc.die("\nError: Could not read configuration file \"" + globalvars.CONFNAME + "\"! Exiting.")
+    misc.verbose_output("ok\n")
 
 def assert_conf_section_present(section):
-    helpers.verbose_output("Config: Checking for section \"" + section + "\"... ")
+    misc.verbose_output("Config: Checking for section \"" + section + "\"... ")
     if section not in config.sections():
-        helpers.die("\nError: Cannot find section \"" + section + "\" in configuration file \"" + CONFNAME + "\"! Exiting.")
-    helpers.verbose_output("ok\n")
+        misc.die("\nError: Cannot find section \"" + section + "\" in configuration file \"" + CONFNAME + "\"! Exiting.")
+    misc.verbose_output("ok\n")
 
 def assert_key_in_conf_section(section, key, not_empty):
-    helpers.verbose_output("Config: Checking for key \"" + key + "\" in " + section + "... ")
+    misc.verbose_output("Config: Checking for key \"" + key + "\" in " + section + "... ")
     if not key in config[section]:
-        helpers.die("\nConfiguration error: Key \"" + key + "\" missing in section \"" + section + "\"! Exiting.")
+        misc.die("\nConfiguration error: Key \"" + key + "\" missing in section \"" + section + "\"! Exiting.")
     if not_empty and config[section][key] == '':
-        helpers.die("\nConfiguration error: Key \"" + key + "\" exists in section \"" + section + "\" but is not allowed to be empty! Exiting.")
-    helpers.verbose_output("ok\n")
+        misc.die("\nConfiguration error: Key \"" + key + "\" exists in section \"" + section + "\" but is not allowed to be empty! Exiting.")
+    misc.verbose_output("ok\n")
 
 def assert_config_keys(section, data):
     assert_conf_section_present(section)
@@ -38,9 +38,9 @@ def assert_config_keys(section, data):
 
 def get_config_value(section, key):
     if not section in config.sections():
-        helpers.die("Error: Cannot get config values, section \"" + section + "\" does not exist! Exiting.")
+        misc.die("Error: Cannot get config values, section \"" + section + "\" does not exist! Exiting.")
     if not key in config[section]:
-        helpers.die("Error: Cannot get config values, no key \"" + key + "\" in section \"" + section + "\"! Exiting.")
+        misc.die("Error: Cannot get config values, no key \"" + key + "\" in section \"" + section + "\"! Exiting.")
     value = config[section][key]
     if len(subst.get_substitution_variables(value)) > 0:
         return(subst.substitute_variables(value))

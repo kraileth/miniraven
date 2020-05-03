@@ -6,7 +6,7 @@
 
 import globalvars
 import modules.conf as conf
-import modules.helpers as helpers
+import modules.misc as misc
 import modules.platform as platform
 import modules.subst as subst
 import configparser
@@ -21,8 +21,8 @@ import time
 ###############
 
 def ensure_fs():
-    helpers.ensure_fs_hierarchy('rjail')
-    helpers.ensure_fs_hierarchy('rbuild')
+    misc.ensure_fs_hierarchy('rjail')
+    misc.ensure_fs_hierarchy('rbuild')
     print("Filesystem: Hierarchy is in place.")
 
 def detect_packages():
@@ -31,12 +31,12 @@ def detect_packages():
     value = conf.get_config_value('main', 'packages').split(', ')
     if isinstance(value, list):
         for p in conf.get_config_value('main', 'packages').split(', '):
-            if helpers.is_package_present(p):
+            if misc.is_package_present(p):
                 packages_present.append(p)
             else:
                 packages_missing.append(p)
     else:
-        if helpers.is_package_present(value):
+        if misc.is_package_present(value):
             packages_present.append(value)
         else:
             packages_missing.append(value)
@@ -62,67 +62,67 @@ def print_info():
 def ensure_distfile(mode, package):
     if mode == "compressed":
         distdir = globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir']
-        filename = helpers.get_filename('distfiles', package)
+        filename = misc.get_filename('distfiles', package)
         hashtype = "md5"
     elif mode == "uncompressed":
         distdir = globalvars.SUBSTITUTION_MAP['rbuild_dist_uncomp_dir']
-        filename = os.path.basename(helpers.get_tarball_uri(package))
+        filename = os.path.basename(misc.get_tarball_uri(package))
         hashtype = "umd5"
     else:
-        helpers.die("Invalid ensure_distfile mode \"" + mode + "\"! Aborting...")
+        misc.die("Invalid ensure_distfile mode \"" + mode + "\"! Aborting...")
     absolute_path = distdir + '/' + filename
 
     if not os.path.isfile(absolute_path):
         if mode == "compressed":
-            helpers.fetch_file(conf.get_config_value('distfiles', package), distdir, filename)
+            misc.fetch_file(conf.get_config_value('distfiles', package), distdir, filename)
         else:
-            decompress_file(globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], helpers.get_filename('distfiles', package), distdir)
+            decompress_file(globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], misc.get_filename('distfiles', package), distdir)
 
-    checksum = helpers.get_distfile_checksum(hashtype, package)
-    helpers.verbose_output("Checksum for \"" + package + "\": Comparing for " + mode + " distfile... ")
+    checksum = misc.get_distfile_checksum(hashtype, package)
+    misc.verbose_output("Checksum for \"" + package + "\": Comparing for " + mode + " distfile... ")
     if checksum == None:
-        helpers.verbose_output("skipping (not available)\n")
+        misc.verbose_output("skipping (not available)\n")
     else:
-        if helpers.get_file_hash(absolute_path) == checksum:
-            helpers.verbose_output("ok (matches)\n")
+        if misc.get_file_hash(absolute_path) == checksum:
+            misc.verbose_output("ok (matches)\n")
         else:
             if mode == "compressed":
-                helpers.verbose_output("Mismatch! Fetching again...\n")
-                helpers.remove_file_or_dir(absolute_path)
-                helpers.fetch_file(conf.get_config_value('distfiles', package), globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], filename)
-                helpers.verbose_output("Comparing checksums once more... ")
-                if helpers.get_file_hash(absolute_path) == checksum:
-                    helpers.verbose_output("ok (matches)\n")
+                misc.verbose_output("Mismatch! Fetching again...\n")
+                misc.remove_file_or_dir(absolute_path)
+                misc.fetch_file(conf.get_config_value('distfiles', package), globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], filename)
+                misc.verbose_output("Comparing checksums once more... ")
+                if misc.get_file_hash(absolute_path) == checksum:
+                    misc.verbose_output("ok (matches)\n")
                 else:
-                    helpers.die("Mismatch again! Bailing out...")
+                    misc.die("Mismatch again! Bailing out...")
             else:
-                helpers.verbose_output("Mismatch! Extracting again...\n")
-                helpers.die("Extract again!")
+                misc.verbose_output("Mismatch! Extracting again...\n")
+                misc.die("Extract again!")
 
 def do_shell_cmd(cmd, cwd, env):
     p = subprocess.Popen(cmd, cwd=cwd, env=env, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # ~ p = subprocess.run(args=cmd, cwd=cwd, env=env, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     if p.returncode != 0:
-        helpers.die("\nError: Shell execution failed!\nstdout: " + stdout.decode() + "\nstderr: " + stderr.decode())
+        misc.die("\nError: Shell execution failed!\nstdout: " + stdout.decode() + "\nstderr: " + stderr.decode())
     return(p.returncode)
 
 def assert_binary_available(binary):
     if not binary in conf.get_config_value('main', 'external_binaries').split(', '):
         program = conf.get_config_value("fs", "tgt_prefix") + "/bin/" + binary
         if not os.path.isfile(program):
-            helpers.die("Cannot decompress \"" + extenstion + "\" archives before the package is built (check package order)! Exiting.")
+            misc.die("Cannot decompress \"" + extenstion + "\" archives before the package is built (check package order)! Exiting.")
 
 def decompress_file(srcdir, filename, tgt_dir):
-    helpers.verbose_output("Decompressing \"" + filename + "\"... ")
-    extension = helpers.get_archive_extension(filename)
+    misc.verbose_output("Decompressing \"" + filename + "\"... ")
+    extension = misc.get_archive_extension(filename)
     
     if extension.startswith("tar"):
         binary = conf.get_config_value("decompress", extension[4:] + "_bin")
     elif extension.startswith("t"):
         binary = conf.get_config_value("decompress", extension[2:] + "_bin")
     else:
-        helpers.die("Error: Unhandled archive \"" + extension + "\"! Exiting.")
+        misc.die("Error: Unhandled archive \"" + extension + "\"! Exiting.")
     assert_binary_available(binary)
     
     generic_cmds = conf.get_config_value("decompress", "decompress_cmd").split(', ')
@@ -131,15 +131,15 @@ def decompress_file(srcdir, filename, tgt_dir):
         # ~ r = do_shell_cmd(cmd, globalvars.SUBSTITUTION_MAP['rbuild_dist_uncomp_dir'], None)
         r = do_shell_cmd(cmd, tgt_dir, None)
         if r != 0:
-            helpers.die("\nError: Could not decompress archive \"" + infile + "\"!")
-    helpers.verbose_output("ok\n")
+            misc.die("\nError: Could not decompress archive \"" + infile + "\"!")
+    misc.verbose_output("ok\n")
 
 def extract_tarball(package):
-    print("Extracting \"" + os.path.basename(helpers.get_tarball_uri(package)) + "\"... ", end='', flush=True)
-    cmd = "tar -C " + globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + " -xf " + helpers.get_tarball_uri(package)
+    print("Extracting \"" + os.path.basename(misc.get_tarball_uri(package)) + "\"... ", end='', flush=True)
+    cmd = "tar -C " + globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + " -xf " + misc.get_tarball_uri(package)
     r = do_shell_cmd(cmd, None, None)
     if r != 0:
-        helpers.die("\nError: Could not extract tarball \"" + os.path.basename(helpers.get_tarball_uri(package)) + "\"! Exiting.")
+        misc.die("\nError: Could not extract tarball \"" + os.path.basename(misc.get_tarball_uri(package)) + "\"! Exiting.")
     print("ok")
 
 def ensure_extrafiles_present(package):
@@ -148,42 +148,42 @@ def ensure_extrafiles_present(package):
     md5s = None
     if package + "_md5" in conf.config['extrafiles']:
         md5s = conf.get_config_value('extrafiles', package + "_md5").split(", ")
-    helpers.verbose_output("Extra files: Ensuring directory \"" + extradir + "\" exists... ")
+    misc.verbose_output("Extra files: Ensuring directory \"" + extradir + "\" exists... ")
     if not os.path.isdir(extradir):
         try:
             os.makedirs(extradir)
         except OSError as e:
-            helpers.die("\nPatches error: Could not create directory \"" + extradir + "\"! Exiting.")
-    helpers.verbose_output("ok\n")
+            misc.die("\nPatches error: Could not create directory \"" + extradir + "\"! Exiting.")
+    misc.verbose_output("ok\n")
     
     i = 0
     for f in extrafiles:
         filename = os.path.basename(f)
         absolute_path = extradir + '/' + filename
         if not os.path.isfile(absolute_path):
-            helpers.fetch_file(f, extradir, filename)
-        helpers.verbose_output("Comparing checksums for extra file " + str(i) + "... ")
+            misc.fetch_file(f, extradir, filename)
+        misc.verbose_output("Comparing checksums for extra file " + str(i) + "... ")
         if md5s == None:
-            helpers.verbose_output("skipping (not available)\n")
+            misc.verbose_output("skipping (not available)\n")
         else:
-            if helpers.get_file_hash(absolute_path) == md5s[i]:
-                helpers.verbose_output("ok (matches)\n")
+            if misc.get_file_hash(absolute_path) == md5s[i]:
+                misc.verbose_output("ok (matches)\n")
             else:
-                helpers.verbose_output("Mismatch! Fetching again...\n")
-                helpers.remove_file_or_dir(absolute_path)
-                helpers.fetch_file(f, extradir, filename)
-                helpers.verbose_output("Comparing checksums once more... ")
-                if helpers.get_file_hash(absolute_path) == md5s[i]:
-                    helpers.verbose_output("ok (matches)\n")
+                misc.verbose_output("Mismatch! Fetching again...\n")
+                misc.remove_file_or_dir(absolute_path)
+                misc.fetch_file(f, extradir, filename)
+                misc.verbose_output("Comparing checksums once more... ")
+                if misc.get_file_hash(absolute_path) == md5s[i]:
+                    misc.verbose_output("ok (matches)\n")
                 else:
-                    helpers.die("Mismatch again! Bailing out...")
+                    misc.die("Mismatch again! Bailing out...")
         i = i + 1
 
 def get_wrkdir(package):
     if package + "_name" in conf.config['distfiles']:
         return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + conf.get_config_value('distfiles', package + "_name"))
     elif package in conf.config['distfiles']:
-        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + os.path.basename(helpers.get_tarball_uri(package).rstrip(".tar")))
+        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + os.path.basename(misc.get_tarball_uri(package).rstrip(".tar")))
     else:
         return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + package)
 
@@ -191,7 +191,7 @@ def ensure_clean_wrkdir(package):
     wrkdir = get_wrkdir(package)
     if os.path.exists(wrkdir):
         print("Old workdir found. Deleting... ", end='', flush=True)
-        helpers.remove_file_or_dir(wrkdir)
+        misc.remove_file_or_dir(wrkdir)
         print("ok")
         
     if package in conf.config['distfiles']:
@@ -204,7 +204,7 @@ def ensure_clean_wrkdir(package):
             try:
                 os.makedirs(wrkdir)
             except OSError as e:
-                helpers.die("\nFilesystem error: Could not create directory \"" + directory + "\"! Exiting.")
+                misc.die("\nFilesystem error: Could not create directory \"" + directory + "\"! Exiting.")
         
         if package in conf.config['extrafiles']:
             ensure_extrafiles_present(package)
@@ -215,7 +215,7 @@ def ensure_clean_wrkdir(package):
                 try:
                     shutil.copy(absolute_path, wrkdir)
                 except IOError as e:
-                    helpers.die("\nFilesystem error: Could not copy \"" + absolute_path + "\" to \"" + wrkdir + "\"! Exiting.")
+                    misc.die("\nFilesystem error: Could not copy \"" + absolute_path + "\" to \"" + wrkdir + "\"! Exiting.")
 
 def ensure_patchfiles_present(package):
     patches = conf.get_config_value('patches', package).split(", ")
@@ -223,35 +223,35 @@ def ensure_patchfiles_present(package):
     if package + "_md5" in conf.config['patches']:
         md5s = conf.get_config_value('patches', package + "_md5").split(", ")
     patchdir = globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + '/' + package
-    helpers.verbose_output("Patches: Ensuring directory \"" + patchdir + "\" exists... ")
+    misc.verbose_output("Patches: Ensuring directory \"" + patchdir + "\" exists... ")
     if not os.path.isdir(patchdir):
         try:
             os.makedirs(patchdir)
         except OSError as e:
-            helpers.die("\nPatches error: Could not create directory \"" + patchdir + "\"! Exiting.")
-    helpers.verbose_output("ok\n")
+            misc.die("\nPatches error: Could not create directory \"" + patchdir + "\"! Exiting.")
+    misc.verbose_output("ok\n")
     i = 0
     
     for uri in patches:
         filename = os.path.basename(uri)
         absolute_path = patchdir + '/' + filename
         if not os.path.isfile(absolute_path):
-            helpers.fetch_file(uri, patchdir, filename)
-        helpers.verbose_output("Comparing checksums for patch " + str(i) + "... ")
+            misc.fetch_file(uri, patchdir, filename)
+        misc.verbose_output("Comparing checksums for patch " + str(i) + "... ")
         if md5s == None:
-            helpers.verbose_output("skipping (not available)\n")
+            misc.verbose_output("skipping (not available)\n")
         else:
-            if helpers.get_file_hash(absolute_path) == md5s[i]:
-                helpers.verbose_output("ok (matches)\n")
+            if misc.get_file_hash(absolute_path) == md5s[i]:
+                misc.verbose_output("ok (matches)\n")
             else:
-                helpers.verbose_output("Mismatch! Fetching again...\n")
-                helpers.remove_file_or_dir(absolute_path)
-                helpers.fetch_file(uri, patchdir, filename)
-                helpers.verbose_output("Comparing checksums once more... ")
-                if helpers.get_file_hash(absolute_path) == md5s[i]:
-                    helpers.verbose_output("ok (matches)\n")
+                misc.verbose_output("Mismatch! Fetching again...\n")
+                misc.remove_file_or_dir(absolute_path)
+                misc.fetch_file(uri, patchdir, filename)
+                misc.verbose_output("Comparing checksums once more... ")
+                if misc.get_file_hash(absolute_path) == md5s[i]:
+                    misc.verbose_output("ok (matches)\n")
                 else:
-                    helpers.die("Mismatch again! Bailing out...")
+                    misc.die("Mismatch again! Bailing out...")
         i = i + 1
 
 def prepare_env(env, package):
@@ -260,13 +260,13 @@ def prepare_env(env, package):
     if env in conf.config['default']:
         for v in conf.get_config_value('default', env).split(', '):
            if v.count('|') != 1:
-                helpers.die("Error: Invalid default environment variable assignment \"" + v + "\"! Exiting.")
+                misc.die("Error: Invalid default environment variable assignment \"" + v + "\"! Exiting.")
            env_add.append(v.split('|'))
     
     if package in conf.config[env + '_env']:
         for v in conf.get_config_value(env + '_env', package).split(', '):
             if v.count('|') != 1:
-                helpers.die("Error: Invalid " + env + " environment variable assignment \"" + v + "\" for package \"" + package + "\"! Exiting.")
+                misc.die("Error: Invalid " + env + " environment variable assignment \"" + v + "\" for package \"" + package + "\"! Exiting.")
             env_add.append(v.split('|'))
     
     for e in env_add:
@@ -282,14 +282,14 @@ def reinplace(filename, string, repl):
         f.write(s)
 
 def prepare_bmake_patch():
-    helpers.verbose_output("Adapting bmake patch to target system... ")
+    misc.verbose_output("Adapting bmake patch to target system... ")
     for s in ["OSNAME", "OSVERSION", "OSRELEASE", "OSMAJOR", "OSARCH", "STDARCH"]:
         reinplace(globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + "/bmake/patch-main.c", s, eval("globalvars." + s))
-    helpers.verbose_output("ok\n")
+    misc.verbose_output("ok\n")
 
 def prepare_uname_source():
     wrkdir = get_wrkdir("uname")
-    helpers.verbose_output("Applying plattform info to fake uname... ")
+    misc.verbose_output("Applying plattform info to fake uname... ")
     reinplace(wrkdir + "/uname.c.in", "\"@OPSYS@\"", globalvars.OSNAME)
     reinplace(wrkdir + "/uname.c.in", "\"@ARCH@\"", globalvars.OSARCH)
     reinplace(wrkdir + "/uname.c.in", "\"@PLATFORM@\"", globalvars.STDARCH)
@@ -297,7 +297,7 @@ def prepare_uname_source():
     reinplace(wrkdir + "/uname.c.in", "\"@USERVER@\"", globalvars.OSVERSION)
     reinplace(wrkdir + "/uname.c.in", "\"@OPSYS@ @RELEASE@ #0 Sat Jul 29 09:00:00 CDT 2017 root@octavia.unreal.systems:/usr/obj/usr/src/sys/GENERIC\"", globalvars.OSNAME + " " + globalvars.OSRELEASE + " #0 " + time.ctime() + " root@" + socket.getfqdn() + ":/usr/obj/usr/src/sys/GENERIC")
     reinplace(wrkdir + "/uname.c.in", "\"octavia.unreal.systems\"", socket.getfqdn())
-    helpers.verbose_output("ok\n")
+    misc.verbose_output("ok\n")
 
 def patch_source(package):
     patches = conf.get_config_value('patches', package).split(", ")
@@ -306,12 +306,12 @@ def patch_source(package):
     for uri in patches:
         filename = os.path.basename(uri)
         absolute_path = patchdir + '/' + filename
-        helpers.verbose_output("Patching source of " + package + ": Applying patch " + str(i) + "... ")
+        misc.verbose_output("Patching source of " + package + ": Applying patch " + str(i) + "... ")
         cmd = "patch -i " + absolute_path
         r = do_shell_cmd(cmd, get_wrkdir(package), None)
         if r != 0:
-            helpers.die("\nError applying patch \"" + absolute_path + "\"! Exiting.")
-        helpers.verbose_output("ok\n")
+            misc.die("\nError applying patch \"" + absolute_path + "\"! Exiting.")
+        misc.verbose_output("ok\n")
         i = i + 1
 
 def build_package(phase, package):
@@ -325,14 +325,14 @@ def build_package(phase, package):
         activity = "Installing"
         env = "make"
     else:
-        helpers.die("\nError: Unknown build phase \"" + phase + "\"! Exiting.")
+        misc.die("\nError: Unknown build phase \"" + phase + "\"! Exiting.")
     env = prepare_env(env, package)
     print(activity + " \"" + package + "\"... ", end='', flush=True)
     wrkdir = get_wrkdir(package)
     for cmd in conf.get_config_value(phase + "_cmds", package).split(', '):
         r = do_shell_cmd(cmd, wrkdir, env)
         if r != 0:
-            helpers.die("\nError: " + activity + " failed for package \"" + package + "\"! Exiting.")
+            misc.die("\nError: " + activity + " failed for package \"" + package + "\"! Exiting.")
     print("ok")
 
 def build_missing():
@@ -363,7 +363,7 @@ conf.assert_config_valid()
 
 globalvars.OSNAME = platform.get_osname()
 if not globalvars.OSNAME in globalvars.OPERATING_SYSTEMS_SUPPORTED:
-    helpers.die("Unsupported OS: \"" + globalvars.OSNAME + "\"!")
+    misc.die("Unsupported OS: \"" + globalvars.OSNAME + "\"!")
 globalvars.OSVERSION = platform.get_os_version()
 globalvars.OSRELEASE = platform.get_os_release()
 globalvars.OSMAJOR = platform.get_os_major()
@@ -373,7 +373,7 @@ globalvars.TGT_TRIPLE = platform.assemble_triple()
 print("System: Set for " + globalvars.TGT_TRIPLE + ".")
 
 subst.populate_substitution_map()
-helpers.assert_external_binaries_available()
+misc.assert_external_binaries_available()
 ensure_fs()
 packages_present, packages_missing = detect_packages()
 print_info()
