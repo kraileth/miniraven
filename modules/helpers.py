@@ -1,3 +1,9 @@
+#############
+ # Imports #
+#############
+
+import modules.globalvars as globalvars
+
 ###############
  # Functions #
 ###############
@@ -6,8 +12,8 @@ def die(msg):
     print(msg)
     exit(1)
 
-def verbose_output(verbosity, string):
-    if verbosity:
+def verbose_output(string):
+    if globalvars.VERBOSE:
         print(string, end="", flush=True)
 
 def main():
