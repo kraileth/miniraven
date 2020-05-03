@@ -6,6 +6,7 @@
 
 import modules.globalvars as globalvars
 import modules.helpers as helpers
+import modules.conf as conf
 import configparser
 import hashlib
 import os
@@ -20,23 +21,11 @@ from urllib.request import urlretrieve
  # Functions #
 ###############
 
-def assert_conf_file_present():
-    ("Config: Checking if config file exists... ")
-    if not os.path.isfile(globalvars.CONFNAME):
-        helpers.die("\nError: Could not read configuration file \"" + globalvars.CONFNAME + "\"! Exiting.")
-    helpers.verbose_output("ok\n")
-
-def assert_conf_section_present(section):
-    helpers.verbose_output("Config: Checking for section \"" + section + "\"... ")
-    if section not in config.sections():
-        helpers.die("\nError: Cannot find section \"" + section + "\" in configuration file \"" + CONFNAME + "\"! Exiting.")
-    helpers.verbose_output("ok\n")
-
 def assert_key_in_conf_section(section, key, not_empty):
     helpers.verbose_output("Config: Checking for key \"" + key + "\" in " + section + "... ")
-    if not key in config[section]:
+    if not key in conf.config[section]:
         helpers.die("\nConfiguration error: Key \"" + key + "\" missing in section \"" + section + "\"! Exiting.")
-    if not_empty and config[section][key] == '':
+    if not_empty and conf.config[section][key] == '':
         helpers.die("\nConfiguration error: Key \"" + key + "\" exists in section \"" + section + "\" but is not allowed to be empty! Exiting.")
     helpers.verbose_output("ok\n")
 
@@ -66,18 +55,18 @@ def substitute_variables(string):
     return(string)
 
 def get_config_value(section, key):
-    if not section in config.sections():
+    if not section in conf.config.sections():
         helpers.die("Error: Cannot get config values, section \"" + section + "\" does not exist! Exiting.")
-    if not key in config[section]:
+    if not key in conf.config[section]:
         helpers.die("Error: Cannot get config values, no key \"" + key + "\" in section \"" + section + "\"! Exiting.")
-    value = config[section][key]
+    value = conf.config[section][key]
     if len(get_substitution_variables(value)) > 0:
         return(substitute_variables(value))
     else:
         return(value)
 
 def assert_config_keys(section, data):
-    assert_conf_section_present(section)
+    conf.assert_conf_section_present(section)
     for key in data:
         assert_key_in_conf_section(section, key, data[key])
 
@@ -91,7 +80,7 @@ def assert_config_valid():
     assert_config_keys('version', globalvars.VERSION_KEYS)
     assert_config_keys('decompress', {'file_types' : False})
     for s in get_config_value('main', 'package_sections').split(', '):
-        assert_conf_section_present(s)
+        conf.assert_conf_section_present(s)
     assert_package_keys_in_section('mini_manifest')
     assert_package_keys_in_section('install_cmds')
     print("Config: Configuration is valid.")
@@ -292,7 +281,7 @@ def get_file_hash(uri):
     return(md5_hash.hexdigest())
 
 def get_filename(section, package):
-    if not package in config[section]:
+    if not package in conf.config[section]:
         helpers.die("Error: Could not find key for \"" + package + "\" in section \"" + section + "\"! Exiting.")
     uri = get_config_value(section, package)
     return(os.path.basename(uri))
@@ -326,7 +315,7 @@ def remove_file_or_dir(uri):
 def get_distfile_checksum(hashtype, package):
     if hashtype != "md5" and hashtype != "umd5":
         helpers.die("Unknown distfile hash type \"" + hashtype + "\"!") 
-    if package in config["distfile_" + hashtype]:
+    if package in conf.config["distfile_" + hashtype]:
         return(get_config_value("distfile_" + hashtype, package))
     return(None)
 
@@ -417,7 +406,7 @@ def ensure_extrafiles_present(package):
     extradir = globalvars.SUBSTITUTION_MAP['rbuild_extra_dir'] + '/' + package
     extrafiles = get_config_value('extrafiles', package).split(", ")
     md5s = None
-    if package + "_md5" in config['extrafiles']:
+    if package + "_md5" in conf.config['extrafiles']:
         md5s = get_config_value('extrafiles', package + "_md5").split(", ")
     helpers.verbose_output("Extra files: Ensuring directory \"" + extradir + "\" exists... ")
     if not os.path.isdir(extradir):
@@ -451,9 +440,9 @@ def ensure_extrafiles_present(package):
         i = i + 1
 
 def get_wrkdir(package):
-    if package + "_name" in config['distfiles']:
+    if package + "_name" in conf.config['distfiles']:
         return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + get_config_value('distfiles', package + "_name"))
-    elif package in config['distfiles']:
+    elif package in conf.config['distfiles']:
         return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + os.path.basename(get_tarball_uri(package).rstrip(".tar")))
     else:
         return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + package)
@@ -465,19 +454,19 @@ def ensure_clean_wrkdir(package):
         remove_file_or_dir(wrkdir)
         print("ok")
         
-    if package in config['distfiles']:
+    if package in conf.config['distfiles']:
         ensure_distfile("compressed", package)
         ensure_distfile("uncompressed", package)
         extract_tarball(package)
     
-    if package in config['extrafiles']:
+    if package in conf.config['extrafiles']:
         if not os.path.exists(wrkdir):
             try:
                 os.makedirs(wrkdir)
             except OSError as e:
                 helpers.die("\nFilesystem error: Could not create directory \"" + directory + "\"! Exiting.")
         
-        if package in config['extrafiles']:
+        if package in conf.config['extrafiles']:
             ensure_extrafiles_present(package)
             extradir = globalvars.SUBSTITUTION_MAP['rbuild_extra_dir'] + '/' + package
             extrafiles = get_config_value('extrafiles', package).split(", ")
@@ -491,7 +480,7 @@ def ensure_clean_wrkdir(package):
 def ensure_patchfiles_present(package):
     patches = get_config_value('patches', package).split(", ")
     md5s = None
-    if package + "_md5" in config['patches']:
+    if package + "_md5" in conf.config['patches']:
         md5s = get_config_value('patches', package + "_md5").split(", ")
     patchdir = globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + '/' + package
     helpers.verbose_output("Patches: Ensuring directory \"" + patchdir + "\" exists... ")
@@ -528,13 +517,13 @@ def ensure_patchfiles_present(package):
 def prepare_env(env, package):
     environ = os.environ.copy()
     env_add = []
-    if env in config['default']:
+    if env in conf.config['default']:
         for v in get_config_value('default', env).split(', '):
            if v.count('|') != 1:
                 helpers.die("Error: Invalid default environment variable assignment \"" + v + "\"! Exiting.")
            env_add.append(v.split('|'))
     
-    if package in config[env + '_env']:
+    if package in conf.config[env + '_env']:
         for v in get_config_value(env + '_env', package).split(', '):
             if v.count('|') != 1:
                 helpers.die("Error: Invalid " + env + " environment variable assignment \"" + v + "\" for package \"" + package + "\"! Exiting.")
@@ -612,14 +601,14 @@ def build_missing():
         ensure_clean_wrkdir(p)
         if p == "uname":
             prepare_uname_source()
-        if p in config['patches']:
+        if p in conf.config['patches']:
             ensure_patchfiles_present(p)
             if p == "bmake":
                 prepare_bmake_patch()
             patch_source(p)
-        if p in config['configure_cmds']:
+        if p in conf.config['configure_cmds']:
             build_package('configure', p)
-        if p in config['make_cmds']:
+        if p in conf.config['make_cmds']:
             build_package('make', p)
         build_package('install', p)
 
@@ -627,9 +616,9 @@ def build_missing():
  # Main #
 ##########
 
-assert_conf_file_present()
-config = configparser.ConfigParser()
-config.read(globalvars.CONFNAME)
+conf.assert_conf_file_present()
+conf.config = configparser.ConfigParser()
+conf.config.read(globalvars.CONFNAME)
 assert_config_valid()
 
 OSNAME = get_osname()
