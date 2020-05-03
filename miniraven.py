@@ -22,61 +22,22 @@ from urllib.request import urlretrieve
  # Functions #
 ###############
 
-def assert_key_in_conf_section(section, key, not_empty):
-    helpers.verbose_output("Config: Checking for key \"" + key + "\" in " + section + "... ")
-    if not key in conf.config[section]:
-        helpers.die("\nConfiguration error: Key \"" + key + "\" missing in section \"" + section + "\"! Exiting.")
-    if not_empty and conf.config[section][key] == '':
-        helpers.die("\nConfiguration error: Key \"" + key + "\" exists in section \"" + section + "\" but is not allowed to be empty! Exiting.")
-    helpers.verbose_output("ok\n")
-
-def get_config_value(section, key):
-    if not section in conf.config.sections():
-        helpers.die("Error: Cannot get config values, section \"" + section + "\" does not exist! Exiting.")
-    if not key in conf.config[section]:
-        helpers.die("Error: Cannot get config values, no key \"" + key + "\" in section \"" + section + "\"! Exiting.")
-    value = conf.config[section][key]
-    if len(subst.get_substitution_variables(value)) > 0:
-        return(subst.substitute_variables(value))
-    else:
-        return(value)
-
-def assert_config_keys(section, data):
-    conf.assert_conf_section_present(section)
-    for key in data:
-        assert_key_in_conf_section(section, key, data[key])
-
-def assert_package_keys_in_section(section):
-    for p in get_config_value('main', 'packages').split(', '):
-        assert_key_in_conf_section(section, p, True)
-
-def assert_config_valid():
-    assert_config_keys('main', globalvars.MAIN_KEYS)
-    assert_config_keys('fs', globalvars.FS_KEYS)
-    assert_config_keys('version', globalvars.VERSION_KEYS)
-    assert_config_keys('decompress', {'file_types' : False})
-    for s in get_config_value('main', 'package_sections').split(', '):
-        conf.assert_conf_section_present(s)
-    assert_package_keys_in_section('mini_manifest')
-    assert_package_keys_in_section('install_cmds')
-    print("Config: Configuration is valid.")
-
 def get_cmd_output(cmd, params):
     p = subprocess.Popen(cmd + " " + params, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     return p.stdout.readlines()[0].strip().decode()
 
 def get_osname():
-    if get_config_value('version', 'osname') == '' or get_config_value('version', 'osname') == 'auto':
+    if conf.get_config_value('version', 'osname') == '' or conf.get_config_value('version', 'osname') == 'auto':
         osname = get_cmd_output("uname", "-s")
         helpers.verbose_output("System: Autodetecting OS... " + osname + "\n")
         return osname
     else:
-        osname = get_config_value('version', 'osname')
+        osname = conf.get_config_value('version', 'osname')
         helpers.verbose_output("System: OS is \"" + osname + "\" (override via config file)\n")
         return osname
 
 def get_os_version():
-    if get_config_value('version', 'osversion') == '' or get_config_value('version', 'osversion') == 'auto':
+    if conf.get_config_value('version', 'osversion') == '' or conf.get_config_value('version', 'osversion') == 'auto':
         if OSNAME == 'FreeBSD':
             osversion = get_cmd_output("uname", "-K")
             helpers.verbose_output("System: Autodetecting OS version... " + osversion + "\n")
@@ -84,12 +45,12 @@ def get_os_version():
         else:
             helpers.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
     else:
-        osversion = get_config_value('version', 'osversion')
+        osversion = conf.get_config_value('version', 'osversion')
         helpers.verbose_output("System: OS version is \"" + osversion + "\" (override via config file)\n")
         return osversion
 
 def get_os_release():
-    if get_config_value('version', 'osrelease') == '' or get_config_value('version', 'osrelease') == 'auto':
+    if conf.get_config_value('version', 'osrelease') == '' or conf.get_config_value('version', 'osrelease') == 'auto':
         if OSNAME == 'FreeBSD':
             temp = get_cmd_output("uname", "-v")
             osrelease = temp[temp.find(" ") + 1 : temp.find("-")]
@@ -98,12 +59,12 @@ def get_os_release():
         else:
             helpers.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
     else:
-        osrelease = get_config_value('version', 'osrelease')
+        osrelease = conf.get_config_value('version', 'osrelease')
         helpers.verbose_output("System: OS release is \"" + osrelease + "\" (override via config file)\n")
         return osrelease
 
 def get_os_major():
-    if get_config_value('version', 'osmajor') == '' or get_config_value('version', 'osmajor') == 'auto':
+    if conf.get_config_value('version', 'osmajor') == '' or conf.get_config_value('version', 'osmajor') == 'auto':
         if OSNAME == 'FreeBSD':
             osmajor = OSRELEASE[:OSRELEASE.find(".")]
             helpers.verbose_output("System: Autodetecting OS major version... " + osmajor + "\n")
@@ -111,12 +72,12 @@ def get_os_major():
         else:
             helpers.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
     else:
-        osmajor = get_config_value('version', 'osmajor')
+        osmajor = conf.get_config_value('version', 'osmajor')
         helpers.verbose_output("System: OS major version is \"" + osmajor + "\" (override via config file)\n")
         return osmajor
 
 def get_os_arch():
-    if get_config_value('version', 'osarch') == '' or get_config_value('version', 'osarch') == 'auto':
+    if conf.get_config_value('version', 'osarch') == '' or conf.get_config_value('version', 'osarch') == 'auto':
         if OSNAME == 'FreeBSD':
             osarch = get_cmd_output("uname", "-p")
             helpers.verbose_output("System: Autodetecting host architecture... " + osarch + "\n")
@@ -124,12 +85,12 @@ def get_os_arch():
         else:
             helpers.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
     else:
-        osarch = get_config_value('version', 'osarch')
+        osarch = conf.get_config_value('version', 'osarch')
         helpers.verbose_output("System: Host architecture is \"" + osarch + "\" (override via config file)\n")
         return osarch
 
 def get_stdarch():
-    if get_config_value('version', 'stdarch') == '' or get_config_value('version', 'stdarch') == 'auto':
+    if conf.get_config_value('version', 'stdarch') == '' or conf.get_config_value('version', 'stdarch') == 'auto':
         if OSARCH == "amd64" or OSARCH == "x86_64":
             stdarch = "x86_64"
         elif OSARCH == "i386":
@@ -141,12 +102,12 @@ def get_stdarch():
         helpers.verbose_output("System: Autodetecting host standard architecture... " + stdarch + "\n")
         return stdarch
     else:
-        stdarch = get_config_value('version', 'stdarch')
+        stdarch = conf.get_config_value('version', 'stdarch')
         helpers.verbose_output("System: Host standard architecture is \"" + stdarch + "\" (override via config file)\n")
         return stdarch
 
 def assemble_triple():
-    if get_config_value('version', 'tgt_triple') == '' or get_config_value('version', 'tgt_triple') == 'auto':
+    if conf.get_config_value('version', 'tgt_triple') == '' or conf.get_config_value('version', 'tgt_triple') == 'auto':
         if OSNAME == 'FreeBSD':
             tgt_triple = STDARCH + "-raven-" + OSNAME.lower() + OSMAJOR
             helpers.verbose_output("System: Assembling target triple... " + tgt_triple + "\n")
@@ -154,12 +115,12 @@ def assemble_triple():
         else:
             helpers.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
     else:
-        tgt_triple = get_config_value('version', 'tgt_triple')
+        tgt_triple = conf.get_config_value('version', 'tgt_triple')
         helpers.verbose_output("System: Target triple is \"" + tgt_triple + "\" (override via config file)\n")
         return tgt_triple
 
 def assert_external_binaries_available():
-    for b in get_config_value('main', 'external_binaries').split(', '):
+    for b in conf.get_config_value('main', 'external_binaries').split(', '):
         helpers.verbose_output("Programs: Checking if \"" + b + "\" is available... ")
         p = subprocess.Popen('command -v ' + b, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if p.stdout.readlines() == []:
@@ -170,17 +131,17 @@ def assert_external_binaries_available():
 def populate_substitution_map():
     globalvars.SUBSTITUTION_MAP
     helpers.verbose_output("Internal: Populating substitution map... ")
-    for v in get_config_value('main', 'substitution_vars').split(', '):
-        globalvars.SUBSTITUTION_MAP[v] = get_config_value('fs', v)
-    for l in get_config_value('main', 'substitution_lists').split(', '):
-        for v in get_config_value('fs', l).split(', '):
+    for v in conf.get_config_value('main', 'substitution_vars').split(', '):
+        globalvars.SUBSTITUTION_MAP[v] = conf.get_config_value('fs', v)
+    for l in conf.get_config_value('main', 'substitution_lists').split(', '):
+        for v in conf.get_config_value('fs', l).split(', '):
             varname = l.replace('_hier', '') + '_' + v
-            globalvars.SUBSTITUTION_MAP[varname] = get_config_value('fs', varname)
+            globalvars.SUBSTITUTION_MAP[varname] = conf.get_config_value('fs', varname)
     helpers.verbose_output("ok\n")
 
 def ensure_fs_hierarchy(hier):
-    for d in get_config_value('fs', hier + '_hier').split(', '):
-        directory = get_config_value('fs', hier + '_' + d)
+    for d in conf.get_config_value('fs', hier + '_hier').split(', '):
+        directory = conf.get_config_value('fs', hier + '_' + d)
         helpers.verbose_output("Filesystem: Ensuring directory \"" + directory + "\" exists... ")
         if not os.path.isdir(directory):
             try:
@@ -195,7 +156,7 @@ def ensure_fs():
     print("Filesystem: Hierarchy is in place.")
 
 def is_package_present(package):
-    for f in get_config_value('mini_manifest', package).split(', '):
+    for f in conf.get_config_value('mini_manifest', package).split(', '):
         if not os.path.isfile(f):
             return False
     return True
@@ -203,9 +164,9 @@ def is_package_present(package):
 def detect_packages():
     packages_present = []
     packages_missing = []
-    value = get_config_value('main', 'packages').split(', ')
+    value = conf.get_config_value('main', 'packages').split(', ')
     if isinstance(value, list):
-        for p in get_config_value('main', 'packages').split(', '):
+        for p in conf.get_config_value('main', 'packages').split(', '):
             if is_package_present(p):
                 packages_present.append(p)
             else:
@@ -259,11 +220,11 @@ def get_file_hash(uri):
 def get_filename(section, package):
     if not package in conf.config[section]:
         helpers.die("Error: Could not find key for \"" + package + "\" in section \"" + section + "\"! Exiting.")
-    uri = get_config_value(section, package)
+    uri = conf.get_config_value(section, package)
     return(os.path.basename(uri))
 
 def get_archive_extension(filename):
-    for e in get_config_value('decompress', 'file_types').split(', '):
+    for e in conf.get_config_value('decompress', 'file_types').split(', '):
         if filename.endswith(e) == True:
             return(e)
     helpers.die("Unsupported archive type for file \"" + filename + "\"! Exiting.")
@@ -292,7 +253,7 @@ def get_distfile_checksum(hashtype, package):
     if hashtype != "md5" and hashtype != "umd5":
         helpers.die("Unknown distfile hash type \"" + hashtype + "\"!") 
     if package in conf.config["distfile_" + hashtype]:
-        return(get_config_value("distfile_" + hashtype, package))
+        return(conf.get_config_value("distfile_" + hashtype, package))
     return(None)
 
 def ensure_distfile(mode, package):
@@ -310,7 +271,7 @@ def ensure_distfile(mode, package):
 
     if not os.path.isfile(absolute_path):
         if mode == "compressed":
-            fetch_file(get_config_value('distfiles', package), distdir, filename)
+            fetch_file(conf.get_config_value('distfiles', package), distdir, filename)
         else:
             decompress_file(globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], get_filename('distfiles', package), distdir)
 
@@ -325,7 +286,7 @@ def ensure_distfile(mode, package):
             if mode == "compressed":
                 helpers.verbose_output("Mismatch! Fetching again...\n")
                 remove_file_or_dir(absolute_path)
-                fetch_file(get_config_value('distfiles', package), globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], filename)
+                fetch_file(conf.get_config_value('distfiles', package), globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir'], filename)
                 helpers.verbose_output("Comparing checksums once more... ")
                 if get_file_hash(absolute_path) == checksum:
                     helpers.verbose_output("ok (matches)\n")
@@ -344,8 +305,8 @@ def do_shell_cmd(cmd, cwd, env):
     return(p.returncode)
 
 def assert_binary_available(binary):
-    if not binary in get_config_value('main', 'external_binaries').split(', '):
-        program = get_config_value("fs", "tgt_prefix") + "/bin/" + binary
+    if not binary in conf.get_config_value('main', 'external_binaries').split(', '):
+        program = conf.get_config_value("fs", "tgt_prefix") + "/bin/" + binary
         if not os.path.isfile(program):
             helpers.die("Cannot decompress \"" + extenstion + "\" archives before the package is built (check package order)! Exiting.")
 
@@ -354,14 +315,14 @@ def decompress_file(srcdir, filename, tgt_dir):
     extension = get_archive_extension(filename)
     
     if extension.startswith("tar"):
-        binary = get_config_value("decompress", extension[4:] + "_bin")
+        binary = conf.get_config_value("decompress", extension[4:] + "_bin")
     elif extension.startswith("t"):
-        binary = get_config_value("decompress", extension[2:] + "_bin")
+        binary = conf.get_config_value("decompress", extension[2:] + "_bin")
     else:
         helpers.die("Error: Unhandled archive \"" + extension + "\"! Exiting.")
     assert_binary_available(binary)
     
-    generic_cmds = get_config_value("decompress", "decompress_cmd").split(', ')
+    generic_cmds = conf.get_config_value("decompress", "decompress_cmd").split(', ')
     for c in generic_cmds:
         cmd = c.replace('%INFILE%', srcdir + '/' + filename).replace('%TGT_DIR%', tgt_dir).replace('%BINARY%', binary).replace('%FILENAME%', filename)
         # ~ r = do_shell_cmd(cmd, globalvars.SUBSTITUTION_MAP['rbuild_dist_uncomp_dir'], None)
@@ -380,10 +341,10 @@ def extract_tarball(package):
 
 def ensure_extrafiles_present(package):
     extradir = globalvars.SUBSTITUTION_MAP['rbuild_extra_dir'] + '/' + package
-    extrafiles = get_config_value('extrafiles', package).split(", ")
+    extrafiles = conf.get_config_value('extrafiles', package).split(", ")
     md5s = None
     if package + "_md5" in conf.config['extrafiles']:
-        md5s = get_config_value('extrafiles', package + "_md5").split(", ")
+        md5s = conf.get_config_value('extrafiles', package + "_md5").split(", ")
     helpers.verbose_output("Extra files: Ensuring directory \"" + extradir + "\" exists... ")
     if not os.path.isdir(extradir):
         try:
@@ -417,7 +378,7 @@ def ensure_extrafiles_present(package):
 
 def get_wrkdir(package):
     if package + "_name" in conf.config['distfiles']:
-        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + get_config_value('distfiles', package + "_name"))
+        return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + conf.get_config_value('distfiles', package + "_name"))
     elif package in conf.config['distfiles']:
         return(globalvars.SUBSTITUTION_MAP['rbuild_const_dir'] + '/' + os.path.basename(get_tarball_uri(package).rstrip(".tar")))
     else:
@@ -445,7 +406,7 @@ def ensure_clean_wrkdir(package):
         if package in conf.config['extrafiles']:
             ensure_extrafiles_present(package)
             extradir = globalvars.SUBSTITUTION_MAP['rbuild_extra_dir'] + '/' + package
-            extrafiles = get_config_value('extrafiles', package).split(", ")
+            extrafiles = conf.get_config_value('extrafiles', package).split(", ")
             for f in extrafiles:
                 absolute_path = extradir + '/' + os.path.basename(f)
                 try:
@@ -454,10 +415,10 @@ def ensure_clean_wrkdir(package):
                     helpers.die("\nFilesystem error: Could not copy \"" + absolute_path + "\" to \"" + wrkdir + "\"! Exiting.")
 
 def ensure_patchfiles_present(package):
-    patches = get_config_value('patches', package).split(", ")
+    patches = conf.get_config_value('patches', package).split(", ")
     md5s = None
     if package + "_md5" in conf.config['patches']:
-        md5s = get_config_value('patches', package + "_md5").split(", ")
+        md5s = conf.get_config_value('patches', package + "_md5").split(", ")
     patchdir = globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + '/' + package
     helpers.verbose_output("Patches: Ensuring directory \"" + patchdir + "\" exists... ")
     if not os.path.isdir(patchdir):
@@ -494,13 +455,13 @@ def prepare_env(env, package):
     environ = os.environ.copy()
     env_add = []
     if env in conf.config['default']:
-        for v in get_config_value('default', env).split(', '):
+        for v in conf.get_config_value('default', env).split(', '):
            if v.count('|') != 1:
                 helpers.die("Error: Invalid default environment variable assignment \"" + v + "\"! Exiting.")
            env_add.append(v.split('|'))
     
     if package in conf.config[env + '_env']:
-        for v in get_config_value(env + '_env', package).split(', '):
+        for v in conf.get_config_value(env + '_env', package).split(', '):
             if v.count('|') != 1:
                 helpers.die("Error: Invalid " + env + " environment variable assignment \"" + v + "\" for package \"" + package + "\"! Exiting.")
             env_add.append(v.split('|'))
@@ -536,7 +497,7 @@ def prepare_uname_source():
     helpers.verbose_output("ok\n")
 
 def patch_source(package):
-    patches = get_config_value('patches', package).split(", ")
+    patches = conf.get_config_value('patches', package).split(", ")
     patchdir = globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + '/' + package
     i = 0
     for uri in patches:
@@ -565,7 +526,7 @@ def build_package(phase, package):
     env = prepare_env(env, package)
     print(activity + " \"" + package + "\"... ", end='', flush=True)
     wrkdir = get_wrkdir(package)
-    for cmd in get_config_value(phase + "_cmds", package).split(', '):
+    for cmd in conf.get_config_value(phase + "_cmds", package).split(', '):
         r = do_shell_cmd(cmd, wrkdir, env)
         if r != 0:
             helpers.die("\nError: " + activity + " failed for package \"" + package + "\"! Exiting.")
@@ -595,7 +556,7 @@ def build_missing():
 conf.assert_conf_file_present()
 conf.config = configparser.ConfigParser()
 conf.config.read(globalvars.CONFNAME)
-assert_config_valid()
+conf.assert_config_valid()
 
 OSNAME = get_osname()
 if not OSNAME in globalvars.OPERATING_SYSTEMS_SUPPORTED:
