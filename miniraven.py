@@ -22,13 +22,9 @@ from urllib.request import urlretrieve
  # Functions #
 ###############
 
-def get_cmd_output(cmd, params):
-    p = subprocess.Popen(cmd + " " + params, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    return p.stdout.readlines()[0].strip().decode()
-
 def get_osname():
     if conf.get_config_value('version', 'osname') == '' or conf.get_config_value('version', 'osname') == 'auto':
-        osname = get_cmd_output("uname", "-s")
+        osname = helpers.get_cmd_output("uname", "-s")
         helpers.verbose_output("System: Autodetecting OS... " + osname + "\n")
         return osname
     else:
@@ -39,7 +35,7 @@ def get_osname():
 def get_os_version():
     if conf.get_config_value('version', 'osversion') == '' or conf.get_config_value('version', 'osversion') == 'auto':
         if OSNAME == 'FreeBSD':
-            osversion = get_cmd_output("uname", "-K")
+            osversion = helpers.get_cmd_output("uname", "-K")
             helpers.verbose_output("System: Autodetecting OS version... " + osversion + "\n")
             return osversion
         else:
@@ -52,7 +48,7 @@ def get_os_version():
 def get_os_release():
     if conf.get_config_value('version', 'osrelease') == '' or conf.get_config_value('version', 'osrelease') == 'auto':
         if OSNAME == 'FreeBSD':
-            temp = get_cmd_output("uname", "-v")
+            temp = helpers.get_cmd_output("uname", "-v")
             osrelease = temp[temp.find(" ") + 1 : temp.find("-")]
             helpers.verbose_output("System: Autodetecting OS release... " + osrelease + "\n")
             return osrelease
@@ -79,7 +75,7 @@ def get_os_major():
 def get_os_arch():
     if conf.get_config_value('version', 'osarch') == '' or conf.get_config_value('version', 'osarch') == 'auto':
         if OSNAME == 'FreeBSD':
-            osarch = get_cmd_output("uname", "-p")
+            osarch = helpers.get_cmd_output("uname", "-p")
             helpers.verbose_output("System: Autodetecting host architecture... " + osarch + "\n")
             return osarch
         else:
@@ -119,15 +115,6 @@ def assemble_triple():
         helpers.verbose_output("System: Target triple is \"" + tgt_triple + "\" (override via config file)\n")
         return tgt_triple
 
-def assert_external_binaries_available():
-    for b in conf.get_config_value('main', 'external_binaries').split(', '):
-        helpers.verbose_output("Programs: Checking if \"" + b + "\" is available... ")
-        p = subprocess.Popen('command -v ' + b, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        if p.stdout.readlines() == []:
-            helpers.die("\nError: \"" + b + "\" is not available on this system (or not in PATH)! Exiting.")
-        helpers.verbose_output("ok\n")
-    print("Programs: All required external programs are available.")
-
 def populate_substitution_map():
     globalvars.SUBSTITUTION_MAP
     helpers.verbose_output("Internal: Populating substitution map... ")
@@ -138,22 +125,6 @@ def populate_substitution_map():
             varname = l.replace('_hier', '') + '_' + v
             globalvars.SUBSTITUTION_MAP[varname] = conf.get_config_value('fs', varname)
     helpers.verbose_output("ok\n")
-
-def ensure_fs_hierarchy(hier):
-    for d in conf.get_config_value('fs', hier + '_hier').split(', '):
-        directory = conf.get_config_value('fs', hier + '_' + d)
-        helpers.verbose_output("Filesystem: Ensuring directory \"" + directory + "\" exists... ")
-        if not os.path.isdir(directory):
-            try:
-                os.makedirs(directory)
-            except OSError as e:
-                helpers.die("\nFilesystem error: Could not create directory \"" + directory + "\"! Exiting.")
-        helpers.verbose_output("ok\n")
-
-def ensure_fs():
-    ensure_fs_hierarchy('rjail')
-    ensure_fs_hierarchy('rbuild')
-    print("Filesystem: Hierarchy is in place.")
 
 def is_package_present(package):
     for f in conf.get_config_value('mini_manifest', package).split(', '):
@@ -570,8 +541,8 @@ TGT_TRIPLE = assemble_triple()
 print("System: Set for " + TGT_TRIPLE + ".")
 
 populate_substitution_map()
-assert_external_binaries_available()
-ensure_fs()
+helpers.assert_external_binaries_available()
+helpers.ensure_fs()
 packages_present, packages_missing = detect_packages()
 print_info()
 
