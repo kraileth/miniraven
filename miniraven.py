@@ -360,7 +360,7 @@ def reinplace(filename, string, repl):
 def prepare_bmake_patch():
     helpers.verbose_output("Adapting bmake patch to target system... ")
     for s in ["OSNAME", "OSVERSION", "OSRELEASE", "OSMAJOR", "OSARCH", "STDARCH"]:
-        reinplace(globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + "/bmake/patch-main.c", s, globals()[s])
+        reinplace(globalvars.SUBSTITUTION_MAP['rbuild_patches_dir'] + "/bmake/patch-main.c", s, eval("globalvars." + s))
     helpers.verbose_output("ok\n")
 
 def prepare_uname_source():
