@@ -12,8 +12,12 @@ Creating software packages and maintaining them over time is not a trivial task.
 
 Rabennest does only run on the reference platform (FreeBSD amd64) at the moment. It can almost build all three of the main non-Ada components: Customized **bmake** and the **fake-uname** work. All requirements for the **ravensw** package manager are also built, but ravensw itself errors out right now. This needs to be investigated.
 
-I'm making this project public now because it could help others who would like to try getting RP to work on a not yet supported platform. My plan is to split it up into several modules next and to start documenting things. When that is done some refactoring is in order. And then data to handle more platforms correctly should be added (as well as perhaps some convenience features).
+I'm making this project public now because it could help others who would like to try getting RP to work on a platform not supported yet.
+
+My plan is to start documenting functions. When that is done some refactoring - including splitting up the configuration to separate general configuration and package information - is in order. And then data to handle more platforms correctly should be added (as well as perhaps some additional features).
 
 ## History
 
-This is my second attempt at writing a tools that helps in getting Ravenports on any system from zero to working. The first one was a single Python script that did build all non-Ada parts on a couple of platforms. This was before the Ravensw package manager was introduced, though. Also it was a complete mess, so I decided to start over from scratch. The new version uses a config file to separate package information from the actual program among other things. It's quite a bit cleaner, but I won't deny that it could use a lot of refactoring as well...
+This is my second attempt at writing a tool that helps in getting Ravenports on any system from zero to working. The first one was a single Python script (ok, in fact I tried it with plain shell scripting first, but that was even more ugly...) that built all non-Ada parts on a couple of platforms. This was before the Ravensw package manager was introduced, though. Also it was a complete mess, so I decided to start over from scratch.
+
+The new version uses a config file to separate package information from the actual program among other things. It's quite a bit cleaner and making use of modules now, but I won't deny that it could use a lot of refactoring as well...
