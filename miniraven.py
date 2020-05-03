@@ -7,6 +7,7 @@
 import globalvars
 import modules.helpers as helpers
 import modules.conf as conf
+import modules.subst as subst
 import configparser
 import hashlib
 import os
@@ -29,39 +30,14 @@ def assert_key_in_conf_section(section, key, not_empty):
         helpers.die("\nConfiguration error: Key \"" + key + "\" exists in section \"" + section + "\" but is not allowed to be empty! Exiting.")
     helpers.verbose_output("ok\n")
 
-def get_substitution_variables(string):
-    variables = []
-    if "$$" in string:
-        var_pos = [pos for pos in range(len(string)) if string.find("$$", pos) == pos]
-        if string.find("$$$") != -1:                                    # Avoid second $$ position if another variable begins right after one ends
-            var_pos.remove(string.find("$$$") + 1)
-        if len(var_pos) % 2 != 0:                                       # Invalid use of $$!
-            helpers.die("Error: Invalid variable substitution in string \"" + string + "\"!")
-        if len(var_pos) > 0:
-            for v in range(0, int(len(var_pos))):
-                if v % 2 != 0:
-                    variables.append(string[var_pos[v - 1]:var_pos[v] + 2].replace('$$', ''))
-    return(variables)
-
-def get_substitution_variable_value(var):
-    v = var.lower()
-    if not v in globalvars.SUBSTITUTION_MAP:
-        helpers.die("Error: Variable \"$$" + var + "$$\" not found in substitution map! Exiting.")
-    return(globalvars.SUBSTITUTION_MAP[v])
-
-def substitute_variables(string):
-    for var in get_substitution_variables(string):
-        string = string.replace("$$" + var + "$$", get_substitution_variable_value(var), 1)
-    return(string)
-
 def get_config_value(section, key):
     if not section in conf.config.sections():
         helpers.die("Error: Cannot get config values, section \"" + section + "\" does not exist! Exiting.")
     if not key in conf.config[section]:
         helpers.die("Error: Cannot get config values, no key \"" + key + "\" in section \"" + section + "\"! Exiting.")
     value = conf.config[section][key]
-    if len(get_substitution_variables(value)) > 0:
-        return(substitute_variables(value))
+    if len(subst.get_substitution_variables(value)) > 0:
+        return(subst.substitute_variables(value))
     else:
         return(value)
 
