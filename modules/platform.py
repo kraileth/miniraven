@@ -20,24 +20,11 @@ def get_osname():
         misc.verbose_output("System: OS is \"" + osname + "\" (override via config file)\n")
         return osname
 
-def get_os_version():
-    if conf.get_config_value('version', 'osversion') == '' or conf.get_config_value('version', 'osversion') == 'auto':
-        if globalvars.OSNAME == 'FreeBSD':
-            osversion = misc.get_cmd_output("uname", "-K")
-            misc.verbose_output("System: Autodetecting OS version... " + osversion + "\n")
-            return osversion
-        else:
-            misc.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
-    else:
-        osversion = conf.get_config_value('version', 'osversion')
-        misc.verbose_output("System: OS version is \"" + osversion + "\" (override via config file)\n")
-        return osversion
-
 def get_os_release():
     if conf.get_config_value('version', 'osrelease') == '' or conf.get_config_value('version', 'osrelease') == 'auto':
-        if globalvars.OSNAME == 'FreeBSD':
-            temp = misc.get_cmd_output("uname", "-v")
-            osrelease = temp[temp.find(" ") + 1 : temp.find("-")]
+        if globalvars.OSNAME == 'FreeBSD' or globalvars.OSNAME == 'DragonFly':
+            temp = misc.get_cmd_output("uname", "-r")
+            osrelease = temp[:temp.find("-")]
             misc.verbose_output("System: Autodetecting OS release... " + osrelease + "\n")
             return osrelease
         else:
@@ -47,9 +34,40 @@ def get_os_release():
         misc.verbose_output("System: OS release is \"" + osrelease + "\" (override via config file)\n")
         return osrelease
 
+def get_os_version():
+    if conf.get_config_value('version', 'osversion') == '' or conf.get_config_value('version', 'osversion') == 'auto':
+        if globalvars.OSNAME == 'FreeBSD':
+            osversion = misc.get_cmd_output("uname", "-K")
+            misc.verbose_output("System: Autodetecting OS version... " + osversion + "\n")
+            return osversion
+        elif globalvars.OSNAME == 'DragonFly':
+            major = globalvars.OSRELEASE[:globalvars.OSRELEASE.find(".")]
+            minor = globalvars.OSRELEASE[globalvars.OSRELEASE.find(".") + 1:]
+            if len(major) == 1:
+                maj = major + "00"
+            elif len(major) == 2:
+                maj = major + "0"
+            else:
+                maj = major
+            if len(minor) == 1:
+                mnr = minor + "00"
+            elif len(minor) == 2:
+                mnr = minor + "0"
+            else:
+                mnr = minor
+            osversion = maj + mnr
+            misc.verbose_output("System: Autodetecting OS version... " + osversion + "\n")
+            return osversion
+        else:
+            misc.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
+    else:
+        osversion = conf.get_config_value('version', 'osversion')
+        misc.verbose_output("System: OS version is \"" + osversion + "\" (override via config file)\n")
+        return osversion
+
 def get_os_major():
     if conf.get_config_value('version', 'osmajor') == '' or conf.get_config_value('version', 'osmajor') == 'auto':
-        if globalvars.OSNAME == 'FreeBSD':
+        if globalvars.OSNAME == 'FreeBSD' or globalvars.OSNAME == 'DragonFly':
             osmajor = globalvars.OSRELEASE[:globalvars.OSRELEASE.find(".")]
             misc.verbose_output("System: Autodetecting OS major version... " + osmajor + "\n")
             return osmajor
@@ -62,7 +80,7 @@ def get_os_major():
 
 def get_os_arch():
     if conf.get_config_value('version', 'osarch') == '' or conf.get_config_value('version', 'osarch') == 'auto':
-        if globalvars.OSNAME == 'FreeBSD':
+        if globalvars.OSNAME == 'FreeBSD' or globalvars.OSNAME == 'DragonFly':
             osarch = misc.get_cmd_output("uname", "-p")
             misc.verbose_output("System: Autodetecting host architecture... " + osarch + "\n")
             return osarch
@@ -94,6 +112,10 @@ def assemble_triple():
     if conf.get_config_value('version', 'tgt_triple') == '' or conf.get_config_value('version', 'tgt_triple') == 'auto':
         if globalvars.OSNAME == 'FreeBSD':
             tgt_triple = globalvars.STDARCH + "-raven-" + globalvars.OSNAME.lower() + globalvars.OSMAJOR
+            misc.verbose_output("System: Assembling target triple... " + tgt_triple + "\n")
+            return tgt_triple
+        elif globalvars.OSNAME == 'DragonFly':
+            tgt_triple = globalvars.STDARCH + "-raven-" + globalvars.OSNAME.lower() + globalvars.OSRELEASE
             misc.verbose_output("System: Assembling target triple... " + tgt_triple + "\n")
             return tgt_triple
         else:
