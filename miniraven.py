@@ -20,7 +20,7 @@ import subprocess
 ###############
 
 def print_info():
-    """Print info about operating system and target triple"""
+    """Print info about operating system and target triple."""
     print("\nInformation summary:\n--------------------------------------")
     print("OSNAME: " + globalvars.OSNAME)
     print("OSVERSION: " + globalvars.OSVERSION)
@@ -38,7 +38,7 @@ def print_info():
         print(p + ' ', end='')
 
 def ensure_distfile(mode, package):
-    """Ensure that the compressed or uncompressed ("mode") distfile for a package is present"""
+    """Ensure that the compressed or uncompressed ("mode") distfile for a package is present."""
     if mode == "compressed":
         distdir = globalvars.SUBSTITUTION_MAP['rbuild_dist_comp_dir']
         filename = misc.get_filename('distfiles', package)
@@ -79,7 +79,7 @@ def ensure_distfile(mode, package):
                 misc.die("Extract again!")
 
 def ensure_extrafiles_present(package):
-    """Ensure that the extra files for a package are present"""
+    """Ensure that the extra files for a package are present."""
     extradir = globalvars.SUBSTITUTION_MAP['rbuild_extra_dir'] + '/' + package
     extrafiles = conf.get_config_value('extrafiles', package).split(", ")
     md5s = None
@@ -117,7 +117,7 @@ def ensure_extrafiles_present(package):
         i = i + 1
 
 def ensure_clean_wrkdir(package):
-    """Ensure that a fresh work directory is present for the package to build"""
+    """Ensure that a fresh work directory is present for the package to build."""
     wrkdir = misc.get_wrkdir(package)
     if os.path.exists(wrkdir):
         print("Old workdir found. Deleting... ", end='', flush=True)
@@ -148,7 +148,7 @@ def ensure_clean_wrkdir(package):
                     misc.die("\nFilesystem error: Could not copy \"" + absolute_path + "\" to \"" + wrkdir + "\"! Exiting.")
 
 def ensure_patchfiles_present(package):
-    """Check if patches required to build the package are present, try to fetch them otherwise"""
+    """Check if patches required to build the package are present, try to fetch them otherwise."""
     patches = conf.get_config_value('patches', package).split(", ")
     md5s = None
     if package + "_md5" in conf.config['patches']:
@@ -186,7 +186,7 @@ def ensure_patchfiles_present(package):
         i = i + 1
 
 def build_package(phase, package):
-    """Configure, make or install (phase) a program (package)"""
+    """Configure, make or install (phase) a program (package)."""
     if phase == "configure":
         activity = "Configuring"
         env = phase
@@ -208,7 +208,7 @@ def build_package(phase, package):
     print("ok")
 
 def ensure_missing_packages():
-    """Build and install missing packages"""
+    """Build and install missing packages."""
     print()
     for p in packages_missing:
         ensure_clean_wrkdir(p)
