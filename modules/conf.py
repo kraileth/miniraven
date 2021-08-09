@@ -22,7 +22,7 @@ def assert_conf_section_present(section):
     """Check if configuration section (section) exists and error out if not."""
     misc.verbose_output("Config: Checking for section \"" + section + "\"... ")
     if section not in config.sections():
-        misc.die("\nError: Cannot find section \"" + section + "\" in configuration file \"" + CONFNAME + "\"! Exiting.")
+        misc.die("\nError: Cannot find section \"" + section + "\" in configuration file \"" + globalvars.CONFNAME + "\"! Exiting.")
     misc.verbose_output("ok\n")
 
 def assert_key_in_conf_section(section, key, not_empty):
@@ -61,7 +61,7 @@ def assert_config_valid():
     """Check configuration for required keys. Error out if any is missing."""
     assert_config_keys('main', globalvars.MAIN_KEYS)
     assert_config_keys('fs', globalvars.FS_KEYS)
-    assert_config_keys('version', globalvars.VERSION_KEYS)
+    assert_config_keys('platform', globalvars.PLATFORM_KEYS)
     assert_config_keys('decompress', {'file_types' : False})
     for s in get_config_value('main', 'package_sections').split(', '):
         assert_conf_section_present(s)

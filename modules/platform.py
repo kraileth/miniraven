@@ -11,17 +11,17 @@ import modules.conf as conf
 ###############
 
 def get_osname():
-    if conf.get_config_value('version', 'osname') == '' or conf.get_config_value('version', 'osname') == 'auto':
+    if conf.get_config_value('platform', 'osname') == '' or conf.get_config_value('platform', 'osname') == 'auto':
         osname = misc.get_cmd_output("uname", "-s")
         misc.verbose_output("System: Autodetecting OS... " + osname + "\n")
         return osname
     else:
-        osname = conf.get_config_value('version', 'osname')
+        osname = conf.get_config_value('platform', 'osname')
         misc.verbose_output("System: OS is \"" + osname + "\" (override via config file)\n")
         return osname
 
 def get_os_release():
-    if conf.get_config_value('version', 'osrelease') == '' or conf.get_config_value('version', 'osrelease') == 'auto':
+    if conf.get_config_value('platform', 'osrelease') == '' or conf.get_config_value('platform', 'osrelease') == 'auto':
         if globalvars.OSNAME == 'FreeBSD' or globalvars.OSNAME == 'DragonFly':
             temp = misc.get_cmd_output("uname", "-r")
             osrelease = temp[:temp.find("-")]
@@ -30,12 +30,12 @@ def get_os_release():
         else:
             misc.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
     else:
-        osrelease = conf.get_config_value('version', 'osrelease')
+        osrelease = conf.get_config_value('platform', 'osrelease')
         misc.verbose_output("System: OS release is \"" + osrelease + "\" (override via config file)\n")
         return osrelease
 
 def get_os_version():
-    if conf.get_config_value('version', 'osversion') == '' or conf.get_config_value('version', 'osversion') == 'auto':
+    if conf.get_config_value('platform', 'osversion') == '' or conf.get_config_value('platform', 'osversion') == 'auto':
         if globalvars.OSNAME == 'FreeBSD':
             osversion = misc.get_cmd_output("uname", "-K")
             misc.verbose_output("System: Autodetecting OS version... " + osversion + "\n")
@@ -61,12 +61,12 @@ def get_os_version():
         else:
             misc.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
     else:
-        osversion = conf.get_config_value('version', 'osversion')
+        osversion = conf.get_config_value('platform', 'osversion')
         misc.verbose_output("System: OS version is \"" + osversion + "\" (override via config file)\n")
         return osversion
 
 def get_os_major():
-    if conf.get_config_value('version', 'osmajor') == '' or conf.get_config_value('version', 'osmajor') == 'auto':
+    if conf.get_config_value('platform', 'osmajor') == '' or conf.get_config_value('platform', 'osmajor') == 'auto':
         if globalvars.OSNAME == 'FreeBSD' or globalvars.OSNAME == 'DragonFly':
             osmajor = globalvars.OSRELEASE[:globalvars.OSRELEASE.find(".")]
             misc.verbose_output("System: Autodetecting OS major version... " + osmajor + "\n")
@@ -74,12 +74,12 @@ def get_os_major():
         else:
             misc.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
     else:
-        osmajor = conf.get_config_value('version', 'osmajor')
+        osmajor = conf.get_config_value('platform', 'osmajor')
         misc.verbose_output("System: OS major version is \"" + osmajor + "\" (override via config file)\n")
         return osmajor
 
 def get_os_arch():
-    if conf.get_config_value('version', 'osarch') == '' or conf.get_config_value('version', 'osarch') == 'auto':
+    if conf.get_config_value('platform', 'osarch') == '' or conf.get_config_value('platform', 'osarch') == 'auto':
         if globalvars.OSNAME == 'FreeBSD' or globalvars.OSNAME == 'DragonFly':
             osarch = misc.get_cmd_output("uname", "-p")
             misc.verbose_output("System: Autodetecting host architecture... " + osarch + "\n")
@@ -87,12 +87,12 @@ def get_os_arch():
         else:
             misc.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
     else:
-        osarch = conf.get_config_value('version', 'osarch')
+        osarch = conf.get_config_value('platform', 'osarch')
         misc.verbose_output("System: Host architecture is \"" + osarch + "\" (override via config file)\n")
         return osarch
 
 def get_stdarch():
-    if conf.get_config_value('version', 'stdarch') == '' or conf.get_config_value('version', 'stdarch') == 'auto':
+    if conf.get_config_value('platform', 'stdarch') == '' or conf.get_config_value('platform', 'stdarch') == 'auto':
         if globalvars.OSARCH == "amd64" or globalvars.OSARCH == "x86_64":
             stdarch = "x86_64"
         elif globalvars.OSARCH == "i386":
@@ -104,12 +104,12 @@ def get_stdarch():
         misc.verbose_output("System: Autodetecting host standard architecture... " + stdarch + "\n")
         return stdarch
     else:
-        stdarch = conf.get_config_value('version', 'stdarch')
+        stdarch = conf.get_config_value('platform', 'stdarch')
         misc.verbose_output("System: Host standard architecture is \"" + stdarch + "\" (override via config file)\n")
         return stdarch
 
 def assemble_triple():
-    if conf.get_config_value('version', 'tgt_triple') == '' or conf.get_config_value('version', 'tgt_triple') == 'auto':
+    if conf.get_config_value('platform', 'tgt_triple') == '' or conf.get_config_value('platform', 'tgt_triple') == 'auto':
         if globalvars.OSNAME == 'FreeBSD':
             tgt_triple = globalvars.STDARCH + "-raven-" + globalvars.OSNAME.lower() + globalvars.OSMAJOR
             misc.verbose_output("System: Assembling target triple... " + tgt_triple + "\n")
@@ -121,7 +121,7 @@ def assemble_triple():
         else:
             misc.die("FATAL: INCOMPLETELY SUPPORTED OS! THIS IS A BUG.")
     else:
-        tgt_triple = conf.get_config_value('version', 'tgt_triple')
+        tgt_triple = conf.get_config_value('platform', 'tgt_triple')
         misc.verbose_output("System: Target triple is \"" + tgt_triple + "\" (override via config file)\n")
         return tgt_triple
 
