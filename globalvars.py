@@ -21,5 +21,5 @@ PLATFORM_KEYS               = {'osname'             : False,
                                'osarch'             : False,
                                'stdarch'            : False,
                                'tgt_triple'         : False}
-OPERATING_SYSTEMS_SUPPORTED = ['DragonFly', 'FreeBSD']
+OPERATING_SYSTEMS_SUPPORTED = ['DragonFly', 'FreeBSD', 'NetBSD']
 SUBSTITUTION_MAP            = {}
